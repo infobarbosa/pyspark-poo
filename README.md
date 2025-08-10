@@ -1,4 +1,7 @@
 # PySpark com POO: Um Guia de Refatoração
+- Author: Prof. Barbosa  
+- Contact: infobarbosa@gmail.com  
+- Github: [infobarbosa](https://github.com/infobarbosa)
 
 Este repositório é um guia passo a passo para refatorar um script PySpark monolítico, aplicando conceitos de Programação Orientada a Objetos (POO), organização de código e testes para criar uma aplicação mais robusta, manutenível e testável.
 
