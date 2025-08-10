@@ -1,0 +1,8 @@
+# Environments
+.venv/
+venv/
+__pycache__/
+
+# Data
+data/
+artifacts/
