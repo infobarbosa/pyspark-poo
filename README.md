@@ -19,6 +19,7 @@ Este repositório é um guia passo a passo para refatorar um script PySpark mono
 11. [Passo 7: Adicionando Logging e Tratamento de Erros](#passo-7-adicionando-logging-e-tratamento-de-erros)
 12. [Passo 8: Gerenciando Dependências com `requirements.txt`](#passo-8-gerenciando-dependências-com-requirementstxt)
 13. [Passo 9: Garantindo a Qualidade do Código com Linter e Formatador](#passo-9-garantindo-a-qualidade-do-código-com-linter-e-formatador)
+14. [Passo 10: Empacotando a Aplicação para Distribuição](#passo-10-empacotando-a-aplicação-para-distribuição)
 
 ---
 
@@ -740,6 +741,107 @@ pip install -r requirements.txt
     ```
 
 Adotar essas ferramentas torna o código mais profissional e fácil de manter, especialmente ao trabalhar em equipe.
+
+---
+
+### Passo 10: Empacotando a Aplicação para Distribuição
+
+O passo final da jornada de um engenheiro de software é tornar sua aplicação distribuível. Em vez de pedir para alguém clonar seu repositório e executar um script, vamos empacotar nosso pipeline em um formato que pode ser instalado com `pip` e executado com um simples comando no terminal.
+
+**1. Crie o arquivo `pyproject.toml`:**
+
+Este é o arquivo de configuração padrão para projetos Python modernos. Crie-o na raiz do seu projeto.
+
+```bash
+touch pyproject.toml
+```
+
+**2. Adicione o conteúdo de configuração:**
+
+Copie o seguinte conteúdo para o seu `pyproject.toml`. Ele define o nome do nosso pacote, a versão, as dependências e, o mais importante, um *script de ponto de entrada*.
+
+```toml
+# pyproject.toml
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyspark_data_pipeline"
+version = "0.1.0"
+authors = [
+  { name="<SEU NOME>", email="<SEU EMAIL>" },
+]
+description = "Um pipeline de dados com PySpark estruturado com boas práticas de engenharia de software."
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.dependencies]
+# O setuptools lerá as dependências do `requirements.txt`
+# Esta é uma forma de manter uma única fonte da verdade.
+# Para que isso funcione, precisamos de um `setup.py` mínimo.
+# (Instruções no próximo passo)
+
+[project.scripts]
+run-data-pipeline = "src.main:main"
+```
+
+**3. Crie um `setup.py` para linkar o `requirements.txt`:**
+
+Para que o `pyproject.toml` consiga ler as dependências do `requirements.txt`, precisamos de um pequeno arquivo `setup.py` que faça essa ponte.
+
+Crie o arquivo `setup.py` na raiz do projeto:
+```bash
+touch setup.py
+```
+
+Adicione o seguinte conteúdo a ele:
+```python
+# setup.py
+from setuptools import setup, find_packages
+
+# Lê o conteúdo do requirements.txt
+with open('requirements.txt') as f:
+    requirements = f.read().splitlines()
+
+setup(
+    name='pyspark_data_pipeline',
+    version='0.1.0',
+    packages=find_packages(),
+    install_requires=requirements,
+)
+```
+
+**4. Instale a ferramenta de build e construa o pacote:**
+
+```bash
+pip install build
+python -m build
+```
+Você verá que um novo diretório `dist/` foi criado, contendo o arquivo `.whl` (Wheel).
+
+**5. Instale e execute sua aplicação:**
+
+Agora, para testar, você pode instalar sua própria aplicação como se fosse qualquer outra biblioteca.
+
+```bash
+# Desinstale a versão de desenvolvimento se já existir
+pip uninstall pyspark_data_pipeline -y
+
+# Instala o pacote que acabamos de criar
+pip install dist/*.whl
+
+# Agora, execute o pipeline com o novo comando!
+run-data-pipeline
+```
+
+Parabéns! Você completou a jornada de transformar um simples script em uma aplicação Python robusta, de alta qualidade e distribuível.
+
 
 
 
