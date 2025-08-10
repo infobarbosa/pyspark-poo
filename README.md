@@ -7,13 +7,14 @@ Este repositório é um guia passo a passo para refatorar um script PySpark mono
 
 ## Sumário
 1. [Configuração Inicial](#configuração-inicial)
-2. [O Ponto de Partida: Script Monolítico](#o-ponto-de-partida-script-monolítico)
-3. [Rumo à Engenharia de Software: O Plano de Batalha](#rumo-à-engenharia-de-software-o-plano-de-batalha)
-4. [Passo 1: Centralizando as Configurações](#passo-1-centralizando-as-configurações)
-5. [Passo 2: Gerenciando a Sessão Spark](#passo-2-gerenciando-a-sessão-spark)
-6. [Passo 3: Unificando a Leitura e Escrita de Dados (I/O)](#passo-3-unificando-a-leitura-e-escrita-de-dados-io)
-7. [Passo 4: Isolando a Lógica de Negócio](#passo-4-isolando-a-lógica-de-negócio)
-8. [Passo 5: Orquestrando a Aplicação no `main.py`](#passo-5-orquestrando-a-aplicação-no-mainpy)
+2. [O Ponto de Partida: Script com Inferência de Schema](#o-ponto-de-partida-script-com-inferência-de-schema)
+3. [Passo 0: A Importância de Definir Schemas Explícitos](#passo-0-a-importância-de-definir-schemas-explícitos)
+4. [Rumo à Engenharia de Software: O Plano de Batalha](#rumo-à-engenharia-de-software-o-plano-de-batalha)
+5. [Passo 1: Centralizando as Configurações](#passo-1-centralizando-as-configurações)
+6. [Passo 2: Gerenciando a Sessão Spark](#passo-2-gerenciando-a-sessão-spark)
+7. [Passo 3: Unificando a Leitura e Escrita de Dados (I/O)](#passo-3-unificando-a-leitura-e-escrita-de-dados-io)
+8. [Passo 4: Isolando a Lógica de Negócio](#passo-4-isolando-a-lógica-de-negócio)
+9. [Passo 5: Orquestrando a Aplicação no `main.py`](#passo-5-orquestrando-a-aplicação-no-mainpy)
 
 ---
 
@@ -40,29 +41,119 @@ Antes de começar, prepare seu ambiente:
     ./download-datasets.sh
     ```
 
-### O Ponto de Partida: Script Monolítico
+### O Ponto de Partida: Script com Inferência de Schema
 
-Atualmente, todo o nosso código está em um único arquivo: `src/main.py`.
+Vamos começar com um script monolítico. Copie o código abaixo e cole no seu arquivo `src/main.py`.
+
+Note que, ao ler os arquivos (`.json` e `.csv`), **não estamos definindo um schema**. Estamos deixando o Spark "adivinhar" a estrutura e os tipos de dados.
 
 ```python
+# src/main.py (Versão 1: com inferência de schema)
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
-from pyspark.sql.types import StructType, StructField, StringType, DoubleType, TimestampType, LongType, ArrayType, DateType, FloatType
+
+spark = SparkSession.builder.appName("Analise de Pedidos").getOrCreate()
+
+# Abrir o dataframe de clientes, deixando o Spark inferir o schema
+clientes = spark.read.option("compression", "gzip").json("data/clientes.gz")
+
+clientes.printSchema()
+clientes.show(5, truncate=False)
+
+# Abrir o dataframe de pedidos, deixando o Spark inferir o schema
+# Para CSV, a inferência exige uma passagem extra sobre os dados (inferSchema=True)
+pedidos = spark.read.option("compression", "gzip") \
+                    .option("header", "true") \
+                    .option("inferSchema", "true") \
+                    .option("sep", ";") \
+                    .csv("data/pedidos.gz")
+
+pedidos.printSchema()
+pedidos = pedidos.withColumn("valor_total", F.col("valor_unitario") * F.col("quantidade"))
+pedidos.show(5, truncate=False)
+
+# O resto da lógica de negócio...
+calculado = pedidos.groupBy("id_cliente") \
+    .agg(F.sum("valor_total").alias("valor_total")) \
+    .orderBy(F.desc("valor_total")) \
+    .limit(10)
+
+pedidos_clientes = calculado.join(clientes, clientes.id == calculado.id_cliente, "inner") \
+    .select(calculado.id_cliente, clientes.nome, clientes.email, calculado.valor_total)
+
+pedidos_clientes.show(20, truncate=False)
+
+spark.stop()
+```
+
+Este script funciona, mas depender da inferência de schema é uma má prática em produção. Vamos entender o porquê.
+
+---
+
+### Passo 0: A Importância de Definir Schemas Explícitos
+
+Deixar o Spark adivinhar o schema (`inferSchema`) é conveniente para exploração de dados, mas traz três grandes problemas para pipelines de dados sérios:
+
+1.  **Desempenho:** Para inferir o schema, o Spark precisa ler os dados uma vez apenas para analisar a estrutura e os tipos. Depois, ele lê os dados uma segunda vez para de fato carregá-los. Isso pode dobrar o tempo de leitura, um custo enorme para datasets grandes.
+2.  **Precisão:** O Spark pode interpretar um tipo de dado de forma errada. Uma coluna de CEP (`"01234-567"`) pode ser lida como `integer` (e virar `1234567`), ou uma data em formato específico pode virar `string`. Isso causa erros silenciosos que corrompem a análise.
+3.  **Imprevisibilidade:** Se uma nova partição de dados chega com um tipo diferente (ex: um `id` que era `long` de repente contém um `string`), a inferência pode quebrar o pipeline ou, pior, mudar o tipo da coluna para `string`, escondendo o problema de qualidade dos dados.
+
+A solução é **sempre** definir o schema explicitamente.
+
+**1. Defina os Schemas com `StructType`:**
+
+Vamos usar `StructType` e `StructField` para declarar a estrutura exata dos nossos dados.
+
+```python
+# Importações necessárias para definir o schema
+from pyspark.sql.types import (StructType, StructField, StringType, LongType, 
+                               ArrayType, DateType, FloatType, TimestampType)
+
+# Schema para o dataframe de clientes
+schema_clientes = StructType([
+    StructField("id", LongType(), True),
+    StructField("nome", StringType(), True),
+    StructField("data_nasc", DateType(), True),
+    StructField("cpf", StringType(), True),
+    StructField("email", StringType(), True),
+    StructField("interesses", ArrayType(StringType()), True)
+])
+
+# Schema para o dataframe de pedidos
+schema_pedidos = StructType([
+    StructField("id_pedido", StringType(), True),
+    StructField("produto", StringType(), True),
+    StructField("valor_unitario", FloatType(), True),
+    StructField("quantidade", LongType(), True),
+    StructField("data_criacao", TimestampType(), True),
+    StructField("uf", StringType(), True),
+    StructField("id_cliente", LongType(), True)
+])
+```
+
+**2. Atualize o `src/main.py` para usar os Schemas:**
+
+Agora, substitua todo o conteúdo do `src/main.py` pela versão abaixo. Este será nosso **ponto de partida oficial** para a refatoração.
+
+```python
+# src/main.py (Versão 2: Ponto de Partida Oficial com Schema Explícito)
+from pyspark.sql import SparkSession
+from pyspark.sql import functions as F
+from pyspark.sql.types import (StructType, StructField, StringType, LongType, 
+                               ArrayType, DateType, FloatType, TimestampType)
 
 spark = SparkSession.builder.appName("Analise de Pedidos").getOrCreate()
 
 # Schema do dataframe de clientes
-schema_clientes = StructType(
-    [
-        StructField("id", LongType(), True),
-        StructField("nome", StringType(), True),
-        StructField("data_nasc", DateType(), True),
-        StructField("cpf", StringType(), True),
-        StructField("email", StringType(), True),
-        StructField("interesses", ArrayType(StringType()), True)
-    ]
-)
-# Abrir o dataframe de clientes
+schema_clientes = StructType([
+    StructField("id", LongType(), True),
+    StructField("nome", StringType(), True),
+    StructField("data_nasc", DateType(), True),
+    StructField("cpf", StringType(), True),
+    StructField("email", StringType(), True),
+    StructField("interesses", ArrayType(StringType()), True)
+])
+# Abrir o dataframe de clientes com schema explícito
 clientes = spark.read.option("compression", "gzip").json("data/clientes.gz", schema=schema_clientes)
 
 clientes.show(5, truncate=False)
@@ -78,7 +169,7 @@ schema_pedidos = StructType([
     StructField("id_cliente", LongType(), True)
 ])
 
-# Abrir o dataframe de pedidos
+# Abrir o dataframe de pedidos com schema explícito
 pedidos = spark.read.option("compression", "gzip").csv("data/pedidos.gz", header=True, schema=schema_pedidos, sep=";")
 pedidos = pedidos.withColumn("valor_total", F.col("valor_unitario") * F.col("quantidade"))
 pedidos.show(5, truncate=False)
@@ -99,17 +190,11 @@ pedidos_clientes.show(20, truncate=False)
 
 spark.stop()
 ```
+Com nosso ponto de partida agora robusto e performático, podemos começar a refatoração para a Programação Orientada a Objetos.
 
-Este script funciona, mas mistura todas as responsabilidades:
--   Configuração do Spark.
--   Definição de schemas.
--   Leitura de dados.
--   Transformações e lógica de negócio.
--   Exibição de resultados.
+---
 
-Isso torna o código difícil de reutilizar, testar e dar manutenção.
-
-### Rumo à Engenharia de Software: O Plano de Batalha
+### Planejamento
 
 Nosso objetivo é evoluir de um simples script para uma aplicação PySpark bem estruturada. Para isso, vamos organizar nosso código em diretórios, onde cada um terá uma responsabilidade única. Esta é a estrutura que vamos construir:
 
@@ -192,7 +277,7 @@ class SparkSessionManager:
     Gerencia a criação e o acesso à sessão Spark.
     """
     @staticmethod
-    def get_spark_session(app_name: str = "PySpark POO App") -> SparkSession:
+    def get_spark_session(app_name: str = "alun-data-eng-pyspark-app") -> SparkSession:
         """
         Cria e retorna uma sessão Spark.
 
