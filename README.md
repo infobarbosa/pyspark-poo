@@ -1,4 +1,4 @@
-# PySpark com POO: Um Guia de Refatoração
+# Engenharia de Software com PySpark: De Script a uma Aplicação Robusta
 - Author: Prof. Barbosa  
 - Contact: infobarbosa@gmail.com  
 - Github: [infobarbosa](https://github.com/infobarbosa)
@@ -15,6 +15,7 @@ Este repositório é um guia passo a passo para refatorar um script PySpark mono
 7. [Passo 3: Unificando a Leitura e Escrita de Dados (I/O)](#passo-3-unificando-a-leitura-e-escrita-de-dados-io)
 8. [Passo 4: Isolando a Lógica de Negócio](#passo-4-isolando-a-lógica-de-negócio)
 9. [Passo 5: Orquestrando a Aplicação no `main.py`](#passo-5-orquestrando-a-aplicação-no-mainpy)
+10. [Passo 6: Aplicando Injeção de Dependências com uma Classe `Pipeline`](#passo-6-aplicando-injeção-de-dependências-com-uma-classe-pipeline)
 
 ---
 
@@ -474,6 +475,119 @@ if __name__ == "__main__":
 -   **Configuração Centralizada:** Mudar os caminhos dos arquivos de entrada ou saída agora é trivial e seguro, sem risco de quebrar a lógica da aplicação.
 -   **Máxima Reutilização:** Cada componente (`DataHandler`, `Transformation`, `SparkSessionManager`) pode ser facilmente importado e reutilizado em outros projetos ou notebooks.
 -   **Testabilidade Aprimorada:** A lógica de negócio em `Transformation` continua pura e fácil de testar. Agora, também podemos testar o `DataHandler` de forma isolada, se necessário.
+
+---
+
+### Passo 6: Aplicando Injeção de Dependências com uma Classe `Pipeline`
+
+Até agora, nossa função `main` está fazendo duas coisas: criando os objetos (`DataHandler`, `Transformation`) e orquestrando as chamadas dos métodos. Vamos dar um passo adiante na organização do código usando um padrão chamado **Injeção de Dependências (DI)**.
+
+A ideia é simples: em vez de uma classe ou função criar os objetos de que precisa (suas "dependências"), ela os recebe de fora, geralmente em seu construtor. Isso desacopla o código e, mais importante, torna-o muito mais fácil de testar.
+
+Vamos criar uma classe `Pipeline` que conterá toda a lógica de orquestração. O `main.py` se tornará a **"Raiz de Composição"** (`Composition Root`), o único lugar responsável por montar e "ligar" os componentes da nossa aplicação.
+
+**1. Crie o arquivo `src/pipeline.py`:**
+
+Este arquivo irá abrigar nossa nova classe orquestradora.
+
+```bash
+touch src/pipeline.py
+```
+
+**2. Adicione o seguinte código ao `src/pipeline.py`:**
+
+A classe `Pipeline` receberá a sessão Spark como uma dependência em seu construtor. Ela então usará essa sessão para inicializar seus próprios componentes, como o `DataHandler`.
+
+```python
+# src/pipeline.py
+from pyspark.sql import SparkSession
+from io.data_handler import DataHandler
+from processing.transformations import Transformation
+import config.settings as settings
+
+class Pipeline:
+    """
+    Encapsula a lógica de execução do pipeline de dados.
+    As dependências são injetadas para facilitar os testes e a manutenção.
+    """
+    def __init__(self, spark: SparkSession):
+        self.spark = spark
+        self.data_handler = DataHandler(self.spark)
+        self.transformer = Transformation()
+
+    def run(self):
+        """
+        Executa o pipeline completo: carga, transformação, e salvamento.
+        """
+        print("Pipeline iniciado...")
+
+        # Carga de Dados
+        print("Carregando dados de clientes e pedidos...")
+        clientes_df = self.data_handler.load_clientes(settings.CLIENTES_PATH)
+        pedidos_df = self.data_handler.load_pedidos(settings.PEDIDOS_PATH)
+
+        # Transformações
+        print("Aplicando transformações...")
+        pedidos_com_valor_total_df = self.transformer.add_valor_total_pedidos(pedidos_df)
+        top_10_clientes_df = self.transformer.get_top_10_clientes(pedidos_com_valor_total_df)
+        resultado_final_df = self.transformer.join_pedidos_clientes(top_10_clientes_df, clientes_df)
+
+        # Exibição e Salvamento
+        print("Top 10 clientes com maior valor total de pedidos:")
+        resultado_final_df.show(10, truncate=False)
+
+        print("Salvando resultado em formato Parquet...")
+        self.data_handler.write_parquet(resultado_final_df, settings.OUTPUT_PATH)
+
+        print("Pipeline concluído com sucesso!")
+```
+
+**3. Refatore o `src/main.py` para ser a Raiz de Composição:**
+
+Agora, o `main.py` fica muito mais limpo. Sua única responsabilidade é inicializar os objetos e iniciar o processo.
+
+Substitua todo o conteúdo do `src/main.py` por este código:
+
+```python
+# src/main.py
+from session.spark_session import SparkSessionManager
+from pipeline import Pipeline
+
+def main():
+    """
+    Função principal que atua como a "Raiz de Composição".
+    Configura e executa o pipeline.
+    """
+    # 1. Inicialização da sessão Spark
+    spark = SparkSessionManager.get_spark_session("Análise de Pedidos com DI")
+    
+    # 2. Injeção de Dependência e Execução
+    # A sessão Spark é "injetada" na criação do pipeline
+    pipeline = Pipeline(spark)
+    pipeline.run()
+
+    # 3. Finalização
+    spark.stop()
+
+if __name__ == "__main__":
+    main()
+```
+
+**4. Garanta que o diretório `src` seja um pacote Python:**
+
+Para que os imports como `from pipeline import Pipeline` funcionem corretamente, o Python precisa tratar o diretório `src` como um "pacote". Para isso, crie um arquivo `__init__.py` vazio dentro dele.
+
+```bash
+touch src/__init__.py
+```
+
+#### O Grande Ganho: Testabilidade
+
+Por que fizemos tudo isso? **Para facilitar os testes.**
+
+Imagine que você queira testar a classe `Pipeline` sem ler arquivos reais do disco. Com a injeção de dependências, você poderia criar um `DataHandler` "falso" (um *mock*) que retorna DataFrames de teste pré-definidos e injetá-lo no `Pipeline`. O `Pipeline` executaria sua lógica sem saber que está usando dados falsos, permitindo que você verifique o resultado de forma rápida e isolada.
+
+Este design nos prepara para o próximo nível de maturidade de software: **testes automatizados**.
 
 
 
