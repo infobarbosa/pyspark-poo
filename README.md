@@ -16,6 +16,9 @@ Este repositório é um guia passo a passo para refatorar um script PySpark mono
 8. [Passo 4: Isolando a Lógica de Negócio](#passo-4-isolando-a-lógica-de-negócio)
 9. [Passo 5: Orquestrando a Aplicação no `main.py`](#passo-5-orquestrando-a-aplicação-no-mainpy)
 10. [Passo 6: Aplicando Injeção de Dependências com uma Classe `Pipeline`](#passo-6-aplicando-injeção-de-dependências-com-uma-classe-pipeline)
+11. [Passo 7: Adicionando Logging e Tratamento de Erros](#passo-7-adicionando-logging-e-tratamento-de-erros)
+12. [Passo 8: Gerenciando Dependências com `requirements.txt`](#passo-8-gerenciando-dependências-com-requirementstxt)
+13. [Passo 9: Garantindo a Qualidade do Código com Linter e Formatador](#passo-9-garantindo-a-qualidade-do-código-com-linter-e-formatador)
 
 ---
 
@@ -588,6 +591,155 @@ Por que fizemos tudo isso? **Para facilitar os testes.**
 Imagine que você queira testar a classe `Pipeline` sem ler arquivos reais do disco. Com a injeção de dependências, você poderia criar um `DataHandler` "falso" (um *mock*) que retorna DataFrames de teste pré-definidos e injetá-lo no `Pipeline`. O `Pipeline` executaria sua lógica sem saber que está usando dados falsos, permitindo que você verifique o resultado de forma rápida e isolada.
 
 Este design nos prepara para o próximo nível de maturidade de software: **testes automatizados**.
+
+---
+
+### Passo 7: Adicionando Logging e Tratamento de Erros
+
+Uma aplicação robusta não usa `print()` para registrar seu progresso e não quebra sem dar informações claras. Vamos substituir nossos `prints` por um sistema de **logging** profissional e adicionar um **tratamento de erros** para tornar nosso pipeline mais resiliente.
+
+**1. Configure o Logging no `pipeline.py`:**
+
+Usaremos o módulo `logging` do Python. Ele nos permite registrar mensagens com diferentes níveis de severidade (ex: `INFO`, `ERROR`) e formatá-las de maneira consistente.
+
+Adicione a configuração do logger no início do arquivo `src/pipeline.py` e substitua todos os `print()` por chamadas ao `logging`.
+
+```python
+# src/pipeline.py
+import logging
+from pyspark.sql import SparkSession
+from io.data_handler import DataHandler
+from processing.transformations import Transformation
+import config.settings as settings
+
+# Configuração centralizada do logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
+class Pipeline:
+    # ... (o construtor __init__ permanece o mesmo) ...
+
+    def run(self):
+        logging.info("Pipeline iniciado...")
+        # ... (substitua os prints por logging.info) ...
+        logging.info("Pipeline concluído com sucesso!")
+```
+
+**2. Adicione Tratamento de Erros no `main.py`:**
+
+O ponto de entrada da nossa aplicação (`main.py`) é o lugar ideal para capturar qualquer erro que possa ocorrer durante a execução do pipeline. Vamos envolver a chamada `pipeline.run()` em um bloco `try...except`.
+
+Atualize o `src/main.py` com o seguinte código:
+
+```python
+# src/main.py
+import logging
+from session.spark_session import SparkSessionManager
+from pipeline import Pipeline
+
+# A configuração do logging também pode ser feita aqui
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+def main():
+    """
+    Função principal que configura e executa o pipeline,
+    com tratamento de erros.
+    """
+    spark = None  # Inicializa a variável spark
+    try:
+        spark = SparkSessionManager.get_spark_session("Análise de Pedidos com DI e Logging")
+        
+        pipeline = Pipeline(spark)
+        pipeline.run()
+
+    except FileNotFoundError as e:
+        logging.error(f"Erro de arquivo não encontrado: {e}")
+    except Exception as e:
+        logging.error(f"Ocorreu um erro inesperado na execução do pipeline: {e}")
+    finally:
+        if spark:
+            spark.stop()
+            logging.info("Sessão Spark finalizada.")
+
+if __name__ == "__main__":
+    main()
+```
+
+Com essas mudanças, se um arquivo não for encontrado, a aplicação não vai mais quebrar com um stack trace gigante. Em vez disso, ela registrará uma mensagem de erro clara e finalizará a sessão Spark de forma segura.
+
+---
+
+### Passo 8: Gerenciando Dependências com `requirements.txt`
+
+Para garantir que nossa aplicação funcione da mesma forma em qualquer máquina, precisamos fixar as versões das bibliotecas que usamos.
+
+**1. Crie o arquivo `requirements.txt`:**
+
+Na raiz do seu projeto, crie um arquivo chamado `requirements.txt`.
+
+```bash
+touch requirements.txt
+```
+
+**2. Adicione a dependência do PySpark:**
+
+Abra o `requirements.txt` e adicione a versão exata do PySpark que você está usando. Você pode descobrir a versão com o comando `pip show pyspark`.
+
+```
+# requirements.txt
+pyspark==3.5.0
+```
+*(Nota: use a versão que estiver instalada no seu ambiente)*
+
+**3. Atualize as instruções de instalação:**
+
+A partir de agora, a forma correta de instalar as dependências do projeto é:
+
+```bash
+pip install -r requirements.txt
+```
+Isso garante que qualquer pessoa que execute seu projeto usará exatamente a mesma versão do PySpark.
+
+---
+
+### Passo 9: Garantindo a Qualidade do Código com Linter e Formatador
+
+Para manter nosso código limpo, legível e livre de erros comuns, vamos usar duas ferramentas padrão da indústria: `ruff` (linter) e `black` (formatador).
+
+**1. Adicione as ferramentas ao `requirements.txt`:**
+
+```
+# requirements.txt
+pyspark==3.5.0
+ruff==0.1.6
+black==23.11.0
+```
+*(Nota: você pode usar versões mais recentes se desejar)*
+
+**2. Instale as novas dependências:**
+
+```bash
+pip install -r requirements.txt
+```
+
+**3. Como usar as ferramentas:**
+
+-   **Para verificar a qualidade do código (Linting):**
+    Execute o `ruff` na raiz do projeto. Ele apontará problemas de estilo, bugs potenciais e código não utilizado.
+    ```bash
+    ruff check .
+    ```
+
+-   **Para formatar o código automaticamente (Formatação):**
+    Execute o `black` na raiz do projeto. Ele irá reformatar todos os seus arquivos `.py` para um estilo consistente.
+    ```bash
+    black .
+    ```
+
+Adotar essas ferramentas torna o código mais profissional e fácil de manter, especialmente ao trabalhar em equipe.
 
 
 
