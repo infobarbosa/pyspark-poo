@@ -598,7 +598,7 @@ Agora, vamos juntar todas as peças. O `main.py` se tornará um orquestrador lim
 ```python
 # src/main.py
 from session.spark_session import SparkSessionManager
-from io.data_handler import DataHandler
+from io_utils.data_handler import DataHandler
 from processing.transformations import Transformation
 import config.settings as settings
 
