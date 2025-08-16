@@ -672,7 +672,7 @@ A classe `Pipeline` receberá a sessão Spark como uma dependência em seu const
 ```python
 # src/pipeline.py
 from pyspark.sql import SparkSession
-from io.data_handler import DataHandler
+from io_utils.data_handler import DataHandler
 from processing.transformations import Transformation
 import config.settings as settings
 
@@ -776,7 +776,7 @@ Adicione a configuração do logger no início do arquivo `src/pipeline.py` e su
 # src/pipeline.py
 import logging
 from pyspark.sql import SparkSession
-from io.data_handler import DataHandler
+from io_utils.data_handler import DataHandler
 from processing.transformations import Transformation
 import config.settings as settings
 
