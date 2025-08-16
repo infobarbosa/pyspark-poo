@@ -515,6 +515,9 @@ touch src/processing/__init__.py
 ```
 
 **2. Crie o arquivo `src/processing/transformations.py`:**
+```bash
+touch src/processing/transformations.py
+```
 
 **3. Adicione o seguinte código a ele:**
 
