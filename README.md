@@ -550,6 +550,32 @@ class Transformation:
             .select(pedidos_df.id_cliente, clientes_df.nome, clientes_df.email, pedidos_df.valor_total)
 ```
 
+**4. Faça os seguintes ajustes em `main.py` :**
+- Importe o pacote processing.transformations
+  ```python
+  from processing.transformations import Transformation
+  ```
+
+- Crie uma instância da classe Transformation
+  ```python
+  transform = Transformation()
+  ```
+
+- Substitua `pedidos = pedidos.withColumn("valor_total"...` por:
+  ```python
+  pedidos = transform.add_valor_total_pedidos(pedidos)
+  ```
+
+- Substitua `calculado = pedidos.groupBy("id_cliente")...` por:
+  ```python
+  calculado = transform.get_top_10_clientes(pedidos)
+  ``` 
+
+- Substitua `pedidos_clientes = calculado.join(clientes,...` por:
+  ```python
+  pedidos_clientes = transform.join_pedidos_clientes(calculado, clientes)
+  ```
+
 ---
 
 ### Passo 5: Orquestrando a Aplicação no `main.py`
