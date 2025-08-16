@@ -269,7 +269,7 @@ Nosso objetivo é evoluir de um simples script para uma aplicação PySpark bem 
     ├── session/
     │   ├── __init__.py
     │   └── spark_session.py    # <-- Classe para gerenciar a sessão Spark
-    ├── io/
+    ├── io_utils/
     │   ├── __init__.py
     │   └── data_handler.py     # <-- Classe para ler e escrever dados (I/O)
     ├── processing/
@@ -407,9 +407,9 @@ mkdir -p src/io_utils
 touch src/io_utils/__init__.py
 ```
 
-**2. Crie o arquivo `src/io/data_handler.py`:**
+**2. Crie o arquivo `src/io_utils/data_handler.py`:**
 ```bash
-touch src/io/data_handler.py
+touch src/io_utils/data_handler.py
 ```
 
 **3. Adicione o seguinte código a ele:**
