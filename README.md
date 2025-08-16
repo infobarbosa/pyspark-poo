@@ -370,6 +370,16 @@ class SparkSessionManager:
 
 ```
 
+**4. Faça os ajustes em `src/main.py`**
+Importando o pacote
+```python
+from session.spark_session import SparkSessionManager
+```
+
+Instanciando a sessão spark
+```python
+spark = SparkSessionManager.get_spark_session()
+```
 ---
 
 ### Passo 3: Unificando a Leitura e Escrita de Dados (I/O)
