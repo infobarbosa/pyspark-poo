@@ -27,10 +27,15 @@ Este repositório é um guia passo a passo para refatorar um script PySpark mono
 
 Antes de começar, prepare seu ambiente:
 
-1.  **Clone o repositório:**
+1.  **Crie uma pasta para o projeto:**
     ```bash
-    git clone git@github.com:infobarbosa/pyspark-poo.git
-    cd pyspark-poo
+    mkdir -p data-engineering-pyspark
+    
+    ```
+    
+    ```bash
+    cd data-engineering-pyspark
+    
     ```
 
 2.  **Crie um ambiente virtual e instale as dependências:**
@@ -38,12 +43,23 @@ Antes de começar, prepare seu ambiente:
     python -m venv .venv
     source .venv/bin/activate
     pip install pyspark
+    
     ```
 
 3.  **Baixe os datasets:**
     Execute o script para baixar os dados necessários para a pasta `data/`.
+    
+    **Pedidos**
     ```bash
-    ./download-datasets.sh
+    # pedidos
+    curl -L -o ./data/pedidos.gz https://raw.githubusercontent.com/infobarbosa/datasets-csv-pedidos/main/data/pedidos/pedidos-2024-01.csv.gz
+
+    ```
+
+    **Clientes**
+    ```bash
+    curl -L -o ./data/clientes.gz https://raw.githubusercontent.com/infobarbosa/dataset-json-clientes/main/data/clientes.json.gz
+    
     ```
 
 ### O Ponto de Partida: Script com Inferência de Schema
