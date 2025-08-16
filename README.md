@@ -51,18 +51,31 @@ Antes de começar, prepare seu ambiente:
 3.  **Baixe os datasets:**
     Execute o script para baixar os dados necessários para a pasta `data/`.
     
-    **Pedidos**
-    ```bash
-    # pedidos
-    curl -L -o ./data/pedidos.gz https://raw.githubusercontent.com/infobarbosa/datasets-csv-pedidos/main/data/pedidos/pedidos-2024-01.csv.gz
-
-    ```
-
     **Clientes**
     ```bash
     curl -L -o ./data/clientes.gz https://raw.githubusercontent.com/infobarbosa/dataset-json-clientes/main/data/clientes.json.gz
     
     ```
+
+    Um olhada rápida no arquivo de clientes
+    ```bash
+    zcat ./data/clientes.gz | head -n 5
+
+    ```
+
+    **Pedidos**
+    ```bash
+    curl -L -o ./data/pedidos.gz https://raw.githubusercontent.com/infobarbosa/datasets-csv-pedidos/main/data/pedidos/pedidos-2024-01.csv.gz
+
+    ```
+
+    Uma olhada rápida no arquivo de pedidos
+    ```bash
+    zcat ./data/pedidos.gz | head -n 5
+    
+    ```
+
+
 
 ### O Ponto de Partida: Script com Inferência de Schema
 
