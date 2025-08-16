@@ -88,15 +88,16 @@ Note que, ao ler os arquivos (`.json` e `.csv`), **não estamos definindo um sch
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 
+print("Abrindo a sessao spark")
 spark = SparkSession.builder.appName("Analise de Pedidos").getOrCreate()
 
-# Abrir o dataframe de clientes, deixando o Spark inferir o schema
+print("Abrindo o dataframe de clientes, deixando o Spark inferir o schema"
 clientes = spark.read.option("compression", "gzip").json("data/clientes.gz")
 
 clientes.printSchema()
 clientes.show(5, truncate=False)
 
-# Abrir o dataframe de pedidos, deixando o Spark inferir o schema
+print("Abrindo o dataframe de pedidos, deixando o Spark inferir o schema")
 # Para CSV, a inferência exige uma passagem extra sobre os dados (inferSchema=True)
 pedidos = spark.read.option("compression", "gzip") \
                     .option("header", "true") \
@@ -105,19 +106,24 @@ pedidos = spark.read.option("compression", "gzip") \
                     .csv("data/pedidos.gz")
 
 pedidos.printSchema()
+
+print("Adicionando a coluna valor_total")
 pedidos = pedidos.withColumn("valor_total", F.col("valor_unitario") * F.col("quantidade"))
 pedidos.show(5, truncate=False)
 
-# O resto da lógica de negócio...
+print("executando a logica de negocio para obter os top 10 clientes em valor total de pedidos")
 calculado = pedidos.groupBy("id_cliente") \
     .agg(F.sum("valor_total").alias("valor_total")) \
     .orderBy(F.desc("valor_total")) \
     .limit(10)
 
+print("criando o dataframe final incluindo os dados do cliente")
 pedidos_clientes = calculado.join(clientes, clientes.id == calculado.id_cliente, "inner") \
     .select(calculado.id_cliente, clientes.nome, clientes.email, calculado.valor_total)
 
 pedidos_clientes.show(20, truncate=False)
+
+pedidos_clientes.write.mode("overwrite").parquet("data/output/pedidos_por_cliente")
 
 spark.stop()
 ```
@@ -248,6 +254,8 @@ pedidos_clientes = calculado.join(clientes, clientes.id == calculado.id_cliente,
     .select(calculado.id_cliente, clientes.nome, clientes.email, calculado.valor_total)
 
 pedidos_clientes.show(20, truncate=False)
+
+pedidos_clientes.write.mode("overwrite").parquet("data/output/pedidos_por_cliente")
 
 spark.stop()
 ```
