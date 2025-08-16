@@ -291,6 +291,7 @@ Vamos seguir este plano passo a passo.
 ```bash
 mkdir -p src/config
 touch src/config/__init__.py
+
 ```
 
 **2. Crie o arquivo `src/config/settings.py`:**
@@ -311,6 +312,23 @@ OUTPUT_PATH = "data/output/pedidos_por_cliente"
 ```
 
 ---
+
+**4. Faça ajustes no script `src/main.py`**
+```python
+from config.settings import CLIENTES_PATH, PEDIDOS_PATH, OUTPUT_PATH
+
+```
+
+```python
+clientes = spark.read.option("compression", "gzip").json(CLIENTES_PATH, schema=schema_clientes)
+
+```
+
+```python
+pedidos = spark.read.option("compression", "gzip").csv(PEDIDOS_PATH, header=True, schema=schema_pedidos, sep=";")
+
+```
+
 
 ### Passo 2: Gerenciando a Sessão Spark
 
