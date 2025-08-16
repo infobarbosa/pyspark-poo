@@ -211,7 +211,7 @@ from pyspark.sql.types import (StructType, StructField, StringType, LongType,
 
 spark = SparkSession.builder.appName("Analise de Pedidos").getOrCreate()
 
-# Schema do dataframe de clientes
+print("Definindo schema do dataframe de clientes")
 schema_clientes = StructType([
     StructField("id", LongType(), True),
     StructField("nome", StringType(), True),
@@ -220,12 +220,12 @@ schema_clientes = StructType([
     StructField("email", StringType(), True),
     StructField("interesses", ArrayType(StringType()), True)
 ])
-# Abrir o dataframe de clientes com schema explícito
+print("Abrindo o dataframe de clientes")
 clientes = spark.read.option("compression", "gzip").json("data/clientes.gz", schema=schema_clientes)
 
 clientes.show(5, truncate=False)
 
-# Schema do dataframe de pedidos
+print("Definindo schema do dataframe de pedidos")
 schema_pedidos = StructType([
     StructField("id_pedido", StringType(), True),
     StructField("produto", StringType(), True),
@@ -236,12 +236,14 @@ schema_pedidos = StructType([
     StructField("id_cliente", LongType(), True)
 ])
 
-# Abrir o dataframe de pedidos com schema explícito
+print("Abrindo o dataframe de pedidos")
 pedidos = spark.read.option("compression", "gzip").csv("data/pedidos.gz", header=True, schema=schema_pedidos, sep=";")
+
+print("Adicionando a coluna valor_total")
 pedidos = pedidos.withColumn("valor_total", F.col("valor_unitario") * F.col("quantidade"))
 pedidos.show(5, truncate=False)
 
-# Calcular o valor total de pedidos por cliente e filtrar os 10 maiores
+print("Calculando o valor total de pedidos por cliente e filtrar os 10 maiores")
 calculado = pedidos.groupBy("id_cliente") \
     .agg(F.sum("valor_total").alias("valor_total")) \
     .orderBy(F.desc("valor_total")) \
@@ -249,12 +251,13 @@ calculado = pedidos.groupBy("id_cliente") \
 
 calculado.show(10, truncate=False)
 
-# Fazer a junção dos dataframes
+print("Fazendo a junção dos dataframes")
 pedidos_clientes = calculado.join(clientes, clientes.id == calculado.id_cliente, "inner") \
     .select(calculado.id_cliente, clientes.nome, clientes.email, calculado.valor_total)
 
 pedidos_clientes.show(20, truncate=False)
 
+print("Escrevendo o resultado em parquet")
 pedidos_clientes.write.mode("overwrite").parquet("data/output/pedidos_por_cliente")
 
 spark.stop()
