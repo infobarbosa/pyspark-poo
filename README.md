@@ -389,8 +389,8 @@ Vamos criar uma classe que lida com todas as operações de entrada (leitura) e 
 **1. Crie o diretório e o arquivo de inicialização:**
 
 ```bash
-mkdir -p src/io
-touch src/io/__init__.py
+mkdir -p src/io_utils
+touch src/io_utils/__init__.py
 ```
 
 **2. Crie o arquivo `src/io/data_handler.py`:**
@@ -400,7 +400,7 @@ touch src/io/__init__.py
 Esta classe irá conter a lógica para ler os arquivos de clientes e pedidos, e também um novo método para escrever nosso resultado final em formato Parquet.
 
 ```python
-# src/io/data_handler.py
+# src/io_utils/data_handler.py
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.types import (StructType, StructField, StringType, LongType,
                                ArrayType, DateType, FloatType, TimestampType)
@@ -457,6 +457,33 @@ class DataHandler:
         print(f"Dados salvos com sucesso em: {path}")
 
 ```
+
+**4. Faça os ajustes em `main.py`:**
+Importar DataHandler do pacote io_utils.data_handler:
+```python
+from io_utils.data_handler import DataHandler
+
+```
+
+Criar uma instância da classe DataHandler:
+```python
+dh = DataHandler(spark)
+```
+
+Substituir a carga dos dataframes de clientes e pedidos pelos seguintes trechos:
+```python
+clientes = dh.load_clientes(path = CLIENTES_PATH)
+```
+
+```python
+pedidos = dh.load_pedidos(path = PEDIDOS_PATH)
+```
+
+Substituir a escrita de dados parquet pelo seguinte trecho:
+```python
+dh.write_parquet(df=pedidos_clientes, path=OUTPUT_PATH)
+```
+
 
 ---
 
