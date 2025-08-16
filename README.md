@@ -122,12 +122,37 @@ pedidos_clientes.show(20, truncate=False)
 spark.stop()
 ```
 
-Este script funciona, mas depender da inferência de schema é uma má prática em produção. Vamos entender o porquê.
+Agora execute:
+```bash
+spark-submit src/main.py
+
+```
+
+O output é longo, mas a parte que nos interessa são as linhas a seguir:
+```
++----------+---------------------+-------------------------------------+-----------+
+|id_cliente|nome                 |email                                |valor_total|
++----------+---------------------+-------------------------------------+-----------+
+|2130      |José Miguel da Mata  |jose.miguel.da.matayqwfaf@outlook.com|6100.0     |
+|3152      |Rafaela Aragão       |rafaela.aragaofzcjqe@gmail.com       |5700.0     |
+|3342      |Mariana Rocha        |mariana.rochaytztlz@hotmail.com      |6000.0     |
+|4130      |Ana Vitória Gonçalves|ana.vitoria.goncalvesjtlhdv@gmail.com|5900.0     |
+|4281      |Maria Cecília Castro |maria.cecilia.castronuscva@gmail.com |5700.0     |
+|4928      |Giovanna Barros      |giovanna.barroswxrhqf@live.com       |6000.0     |
+|9346      |Felipe Pires         |felipe.pirespfgkrh@live.com          |10000.0    |
+|12911     |晃 佐藤              |Huang .Zuo Teng xfpnwb@outlook.com   |7000.0     |
+|13045     |Daniela Cavalcante   |daniela.cavalcantetkjrto@hotmail.com |6500.0     |
+|14653     |Bryan Souza          |bryan.souzazxoccx@live.com           |7500.0     |
++----------+---------------------+-------------------------------------+-----------+
+```
+
+Se o output acima não estiver aparecendo, verifique se o Spark está rodando.
 
 ---
 
 ### Passo 0: A Importância de Definir Schemas Explícitos
 
+Este script funciona, mas depender da inferência de schema é uma má prática em produção. Vamos entender o porquê.<br>
 Deixar o Spark adivinhar o schema (`inferSchema`) é conveniente para exploração de dados, mas traz três grandes problemas para pipelines de dados sérios:
 
 1.  **Desempenho:** Para inferir o schema, o Spark precisa ler os dados uma vez apenas para analisar a estrutura e os tipos. Depois, ele lê os dados uma segunda vez para de fato carregá-los. Isso pode dobrar o tempo de leitura, um custo enorme para datasets grandes.
