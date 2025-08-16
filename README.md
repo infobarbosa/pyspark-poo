@@ -40,7 +40,7 @@ Antes de começar, prepare seu ambiente:
 
 2.  **Crie um ambiente virtual e instale as dependências:**
     ```bash
-    python -m venv .venv
+    python3 -m venv .venv
     source .venv/bin/activate
     pip install pyspark
     
