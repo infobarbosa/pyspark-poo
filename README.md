@@ -297,6 +297,9 @@ touch src/config/__init__.py
 **2. Crie o arquivo `src/config/settings.py`:**
 
 Este arquivo conterá os caminhos para nossos dados de entrada e para a pasta de saída onde salvaremos o resultado.
+```bash
+touch src/config/settings.py
+```
 
 **3. Adicione o seguinte código ao `src/config/settings.py`:**
 
@@ -314,21 +317,27 @@ OUTPUT_PATH = "data/output/pedidos_por_cliente"
 ---
 
 **4. Faça ajustes no script `src/main.py`**
-```python
-from config.settings import CLIENTES_PATH, PEDIDOS_PATH, OUTPUT_PATH
+- Importe o pacote config.settings:
+  ```python
+  from config.settings import CLIENTES_PATH, PEDIDOS_PATH, OUTPUT_PATH
+  ```
 
-```
+- Substitua os paths explícitos pelas respectivas variáveis
+  
+  Clientes
+  ```python
+  clientes = spark.read.option("compression", "gzip").json(CLIENTES_PATH, schema=schema_clientes)
+  ```
 
-```python
-clientes = spark.read.option("compression", "gzip").json(CLIENTES_PATH, schema=schema_clientes)
+  Pedidos
+  ```python
+  pedidos = spark.read.option("compression", "gzip").csv(PEDIDOS_PATH, header=True, schema=schema_pedidos, sep=";")
+  ```
 
-```
-
-```python
-pedidos = spark.read.option("compression", "gzip").csv(PEDIDOS_PATH, header=True, schema=schema_pedidos, sep=";")
-
-```
-
+  Resultado
+  ```python
+  pedidos_clientes.write.mode("overwrite").parquet(OUTPUT_PATH)
+  ```
 
 ### Passo 2: Gerenciando a Sessão Spark
 
@@ -339,9 +348,14 @@ A criação da `SparkSession` também pode ser isolada para ser mais reutilizáv
 ```bash
 mkdir -p src/session
 touch src/session/__init__.py
+
 ```
 
 **2. Crie o arquivo `src/session/spark_session.py`:**
+```bash
+touch src/session/spark_session.py
+
+```
 
 **3. Adicione o seguinte código a ele:**
 
@@ -371,15 +385,15 @@ class SparkSessionManager:
 ```
 
 **4. Faça os ajustes em `src/main.py`**
-Importando o pacote
-```python
-from session.spark_session import SparkSessionManager
-```
+- Importando o pacote
+  ```python
+  from session.spark_session import SparkSessionManager
+  ```
 
-Instanciando a sessão spark
-```python
-spark = SparkSessionManager.get_spark_session()
-```
+- Instanciando a sessão spark
+  ```python
+  spark = SparkSessionManager.get_spark_session()
+  ```
 ---
 
 ### Passo 3: Unificando a Leitura e Escrita de Dados (I/O)
@@ -394,6 +408,9 @@ touch src/io_utils/__init__.py
 ```
 
 **2. Crie o arquivo `src/io/data_handler.py`:**
+```bash
+touch src/io/data_handler.py
+```
 
 **3. Adicione o seguinte código a ele:**
 
@@ -459,31 +476,30 @@ class DataHandler:
 ```
 
 **4. Faça os ajustes em `main.py`:**
-Importar DataHandler do pacote io_utils.data_handler:
-```python
-from io_utils.data_handler import DataHandler
 
-```
+- Importar DataHandler do pacote io_utils.data_handler:
+  ```python
+  from io_utils.data_handler import DataHandler
+  ```
 
-Criar uma instância da classe DataHandler:
-```python
-dh = DataHandler(spark)
-```
+- Criar uma instância da classe DataHandler:
+  ```python
+  dh = DataHandler(spark)
+  ```
 
-Substituir a carga dos dataframes de clientes e pedidos pelos seguintes trechos:
-```python
-clientes = dh.load_clientes(path = CLIENTES_PATH)
-```
+- Substituir a carga dos dataframes de clientes e pedidos pelos seguintes trechos:
+  ```python
+  clientes = dh.load_clientes(path = CLIENTES_PATH)
+  ```
 
-```python
-pedidos = dh.load_pedidos(path = PEDIDOS_PATH)
-```
+  ```python
+  pedidos = dh.load_pedidos(path = PEDIDOS_PATH)
+  ```
 
-Substituir a escrita de dados parquet pelo seguinte trecho:
-```python
-dh.write_parquet(df=pedidos_clientes, path=OUTPUT_PATH)
-```
-
+- Substituir a escrita de dados parquet pelo seguinte trecho:
+  ```python
+  dh.write_parquet(df=pedidos_clientes, path=OUTPUT_PATH)
+  ```
 
 ---
 
