@@ -772,6 +772,12 @@ Para que os imports como `from pipeline import Pipeline` funcionem corretamente,
 touch src/__init__.py
 ```
 
+**5. Faça o teste:**
+```bash
+spark-submit src/main.py
+
+```
+
 #### O Grande Ganho: Testabilidade
 
 Por que fizemos tudo isso? **Para facilitar os testes.**
