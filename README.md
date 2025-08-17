@@ -27,6 +27,8 @@ Este repositório é um guia passo a passo para refatorar um script PySpark mono
 
 Antes de começar, prepare seu ambiente:
 
+ATENÇÃO! Se estiver utilizando Cloud9, utilize esse [tutorial](https://github.com/infobarbosa/data-engineering-cloud9]).
+
 1. **Instale o Java 17:**
   ```bash
   sudo apt upgrade -y && sudo apt update -y
