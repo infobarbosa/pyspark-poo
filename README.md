@@ -1199,6 +1199,160 @@ Agora, para testar, você pode instalar sua própria aplicação como se fosse q
 
     ```
 
+### Passo 11: Garantindo a Lógica de Negócio com Testes Unitários
+
+Até agora, construímos uma aplicação robusta, bem estruturada e distribuível. Mas como podemos garantir que a lógica de negócio — o coração da nossa aplicação — está funcionando corretamente e continuará funcionando conforme o projeto evolui? A resposta é: **testes automatizados**.
+
+Testar a lógica de transformação de dados é crucial porque:
+- **Valida a Correção:** Garante que seus cálculos e regras de negócio estão sendo aplicados exatamente como o esperado.
+- **Previne Regressões:** Se você fizer uma alteração no futuro que quebre uma lógica existente, o teste irá falhar, alertando-o imediatamente.
+- **Facilita a Manutenção:** Com uma suíte de testes robusta, você pode refatorar e melhorar seu código com a confiança de que não está introduzindo bugs.
+
+Vamos focar em **testes unitários** para nossa classe `Transformation`, pois ela contém a lógica pura, sem depender de I/O (leitura/escrita de arquivos).
+
+**1. Adicione o `pytest` às Dependências:**
+
+`pytest` é o framework de testes mais popular para Python. Vamos adicioná-lo ao nosso projeto.
+
+Atualize o `requirements.txt`:
+```
+# requirements.txt
+pyspark==4.0.0
+ruff==0.12.9
+black==25.1.0
+build==1.3.0
+pytest==8.4.1  # Adicione esta linha
+```
+*(Nota: você pode usar uma versão mais recente do pytest se desejar)*
+
+E instale a nova dependência:
+```bash
+pip install -r requirements.txt
+
+```
+
+**2. Crie a Estrutura de Testes:**
+
+É uma convenção criar um diretório `tests` na raiz do projeto, separado do código-fonte (`src`).
+
+```bash
+mkdir tests
+touch tests/__init__.py
+
+```
+
+Dentro deste diretório, criaremos um arquivo para testar nossas transformações. O nome do arquivo deve começar com `test_`.
+
+```bash
+touch tests/test_transformations.py
+
+```
+
+**3. Escrevendo Nosso Primeiro Teste:**
+
+Vamos escrever um teste para o método `add_valor_total_pedidos` da nossa classe `Transformation`. O teste seguirá 3 passos: **Arrange** (Preparar), **Act** (Agir) e **Assert** (Verificar).
+
+Adicione o seguinte código ao arquivo `tests/test_transformations.py`:
+
+```python
+# tests/test_transformations.py
+import pytest
+from pyspark.sql import SparkSession
+from pyspark.sql.types import StructType, StructField, StringType, FloatType, LongType
+from src.processing.transformations import Transformation
+
+@pytest.fixture(scope="session")
+def spark_session():
+    """
+    Cria uma SparkSession para ser usada em todos os testes.
+    A sessão é finalizada automaticamente ao final da execução dos testes.
+    """
+    spark = SparkSession.builder \
+        .appName("PySpark Unit Tests") \
+        .master("local[*]") \
+        .getOrCreate()
+    yield spark
+    spark.stop()
+
+def test_add_valor_total_pedidos(spark_session):
+    """
+    Testa a função add_valor_total_pedidos para garantir que a coluna 'valor_total'
+    é calculada corretamente.
+    """
+    # 1. Arrange (Preparar os dados de entrada e o resultado esperado)
+    transformer = Transformation()
+
+    schema_entrada = StructType([
+        StructField("produto", StringType(), True),
+        StructField("valor_unitario", FloatType(), True),
+        StructField("quantidade", LongType(), True),
+    ])
+    dados_entrada = [
+        ("Produto A", 10.0, 2),
+        ("Produto B", 5.5, 3),
+        ("Produto C", 100.0, 1)
+    ]
+    df_entrada = spark_session.createDataFrame(dados_entrada, schema_entrada)
+
+    schema_esperado = StructType([
+        StructField("produto", StringType(), True),
+        StructField("valor_unitario", FloatType(), True),
+        StructField("quantidade", LongType(), True),
+        StructField("valor_total", FloatType(), True)
+    ])
+    dados_esperados = [
+        ("Produto A", 10.0, 2, 20.0),
+        ("Produto B", 5.5, 3, 16.5),
+        ("Produto C", 100.0, 1, 100.0)
+    ]
+    df_esperado = spark_session.createDataFrame(dados_esperados, schema_esperado)
+
+    # 2. Act (Executar a função a ser testada)
+    df_resultado = transformer.add_valor_total_pedidos(df_entrada)
+
+    # 3. Assert (Verificar se o resultado é o esperado)
+    # Coletamos os dados dos DataFrames para comparar como listas de dicionários
+    resultado_coletado = sorted([row.asDict() for row in df_resultado.collect()], key=lambda x: x['produto'])
+    esperado_coletado = sorted([row.asDict() for row in df_esperado.collect()], key=lambda x: x['produto'])
+
+    assert df_resultado.count() == df_esperado.count(), "O número de linhas não corresponde ao esperado."
+    assert df_resultado.columns == df_esperado.columns, "As colunas não correspondem ao esperado."
+    assert resultado_coletado == esperado_coletado, "O conteúdo dos DataFrames não é igual."
+
+```
+
+**O que este código faz?**
+- **`@pytest.fixture`**: Cria uma `SparkSession` que pode ser reutilizada por vários testes. É mais eficiente do que criar uma nova sessão para cada teste.
+- **`test_add_valor_total_pedidos`**:
+    - **Arrange**: Criamos um pequeno DataFrame de entrada (`df_entrada`) com dados de teste e o DataFrame exato que esperamos como saída (`df_esperado`).
+    - **Act**: Chamamos o método `add_valor_total_pedidos` com nosso DataFrame de teste.
+    - **Assert**: Comparamos o resultado. Como a ordem das linhas em um DataFrame não é garantida, a forma mais segura de comparar é coletar os resultados (`.collect()`), ordená-los e então comparar as listas de objetos Python. Também verificamos se o número de linhas e as colunas são idênticos.
+
+**4. Executando os Testes:**
+
+Para rodar todos os testes do seu projeto, basta executar o comando `pytest` na raiz do seu diretório:
+
+```bash
+pytest
+
+```
+
+Se tudo estiver correto, você verá uma saída indicando que o teste passou:
+
+```
+============================= test session starts ==============================
+...
+collected 1 item
+
+tests/test_transformations.py .                                          [100%]
+
+============================== 1 passed in ...s ===============================
+```
+
+Agora você tem uma rede de segurança! Antes de distribuir uma nova versão da sua aplicação, você pode rodar `pytest` para garantir que a lógica de negócio principal continua intacta.
+
+---
+
 ## Parabéns! 
 Você completou a jornada de transformar um simples script em uma aplicação Python robusta, de alta qualidade e distribuível.
 
