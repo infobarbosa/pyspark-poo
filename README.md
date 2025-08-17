@@ -60,25 +60,25 @@ Antes de começar, prepare seu ambiente:
     
     **Clientes**
     ```bash
-    curl -L -o ./data/clientes.gz https://raw.githubusercontent.com/infobarbosa/dataset-json-clientes/main/data/clientes.json.gz
+    curl -L -o ./data/input/clientes.gz https://raw.githubusercontent.com/infobarbosa/dataset-json-clientes/main/data/clientes.json.gz
     
     ```
 
     Um olhada rápida no arquivo de clientes
     ```bash
-    gunzip -c data/clientes.gz | head -n 5
+    gunzip -c data/input/clientes.gz | head -n 5
 
     ```
 
     **Pedidos**
     ```bash
-    curl -L -o ./data/pedidos.gz https://raw.githubusercontent.com/infobarbosa/datasets-csv-pedidos/main/data/pedidos/pedidos-2024-01.csv.gz
+    curl -L -o ./data/input/pedidos.gz https://raw.githubusercontent.com/infobarbosa/datasets-csv-pedidos/main/data/pedidos/pedidos-2024-01.csv.gz
 
     ```
 
     Uma olhada rápida no arquivo de pedidos
     ```bash
-    gunzip -c ./data/pedidos.gz | head -n 5
+    gunzip -c ./data/input/pedidos.gz | head -n 5
     
     ```
 
@@ -98,8 +98,8 @@ from pyspark.sql import functions as F
 print("Abrindo a sessao spark")
 spark = SparkSession.builder.appName("Analise de Pedidos").getOrCreate()
 
-print("Abrindo o dataframe de clientes, deixando o Spark inferir o schema"
-clientes = spark.read.option("compression", "gzip").json("data/clientes.gz")
+print("Abrindo o dataframe de clientes, deixando o Spark inferir o schema")
+clientes = spark.read.option("compression", "gzip").json("data/input/clientes.gz")
 
 clientes.printSchema()
 clientes.show(5, truncate=False)
@@ -110,7 +110,7 @@ pedidos = spark.read.option("compression", "gzip") \
                     .option("header", "true") \
                     .option("inferSchema", "true") \
                     .option("sep", ";") \
-                    .csv("data/pedidos.gz")
+                    .csv("data/input/pedidos.gz")
 
 pedidos.printSchema()
 
@@ -228,7 +228,7 @@ schema_clientes = StructType([
     StructField("interesses", ArrayType(StringType()), True)
 ])
 print("Abrindo o dataframe de clientes")
-clientes = spark.read.option("compression", "gzip").json("data/clientes.gz", schema=schema_clientes)
+clientes = spark.read.option("compression", "gzip").json("data/input/clientes.gz", schema=schema_clientes)
 
 clientes.show(5, truncate=False)
 
@@ -244,7 +244,7 @@ schema_pedidos = StructType([
 ])
 
 print("Abrindo o dataframe de pedidos")
-pedidos = spark.read.option("compression", "gzip").csv("data/pedidos.gz", header=True, schema=schema_pedidos, sep=";")
+pedidos = spark.read.option("compression", "gzip").csv("data/input/pedidos.gz", header=True, schema=schema_pedidos, sep=";")
 
 print("Adicionando a coluna valor_total")
 pedidos = pedidos.withColumn("valor_total", F.col("valor_unitario") * F.col("quantidade"))
@@ -325,8 +325,8 @@ touch src/config/settings.py
 # src/config/settings.py
 
 # Caminhos para os dados de entrada (fontes)
-CLIENTES_PATH = "data/clientes.gz"
-PEDIDOS_PATH = "data/pedidos.gz"
+CLIENTES_PATH = "data/input/clientes.gz"
+PEDIDOS_PATH = "data/input/pedidos.gz"
 
 # Caminho para os dados de saída (destino)
 OUTPUT_PATH = "data/output/pedidos_por_cliente"
