@@ -1116,6 +1116,7 @@ Agora, para testar, você pode instalar sua própria aplicação como se fosse q
     ```bash
     # Instala o pacote que acabamos de criar
     pip install dist/*.whl
+    
     ```
 
   - Executando a aplicação
