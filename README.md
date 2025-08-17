@@ -30,7 +30,8 @@ Antes de começar, prepare seu ambiente:
 1.  **Crie uma pasta para o projeto:**
     ```bash
     mkdir -p data-engineering-pyspark/src
-    mkdir -p data-engineering-pyspark/data
+    mkdir -p data-engineering-pyspark/data/input
+    mkdir -p data-engineering-pyspark/data/output
     
     ```
     
