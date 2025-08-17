@@ -27,7 +27,18 @@ Este repositório é um guia passo a passo para refatorar um script PySpark mono
 
 Antes de começar, prepare seu ambiente:
 
-1.  **Crie uma pasta para o projeto:**
+1. **Instale o Java 17:**
+  ```bash
+  sudo apt upgrade -y && sudo apt update -y
+
+  ```
+
+  ```bash
+  sudo apt install -y openjdk-17-jdk
+
+  ```
+
+2.  **Crie uma pasta para o projeto:**
     ```bash
     mkdir -p data-engineering-pyspark/src
     mkdir -p data-engineering-pyspark/data/input
@@ -40,7 +51,7 @@ Antes de começar, prepare seu ambiente:
     
     ```
 
-2.  **Crie um ambiente virtual e instale as dependências:**
+3.  **Crie um ambiente virtual e instale as dependências:**
     ```bash
     python3 -m venv .venv
     
@@ -56,7 +67,7 @@ Antes de começar, prepare seu ambiente:
     
     ```
 
-3.  **Baixe os datasets:**
+4.  **Baixe os datasets:**
     Execute o script para baixar os dados necessários para a pasta `data/`.
     
     **Clientes**
