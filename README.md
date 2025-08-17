@@ -1019,7 +1019,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pyspark_data_pipeline"
+name = "dataeng_pyspark_data_pipeline"
 version = "0.1.0"
 authors = [
   { name="<SEU NOME>", email="<SEU EMAIL>" },
@@ -1062,28 +1062,37 @@ with open('requirements.txt') as f:
     requirements = f.read().splitlines()
 
 setup(
-    name='pyspark_data_pipeline',
+    name='dataeng_pyspark_data_pipeline',
     version='0.1.0',
     packages=find_packages(),
     install_requires=requirements,
 )
 ```
 
-**4. Instale a ferramenta de build e construa o pacote:**
+**4. Adicione o pacote `build` a `requirements.txt`:**
+```
+# requirements.txt
+pyspark==4.0.0
+ruff==0.12.9
+black==25.1.0
+build==1.3.0
+```
+
+**5. Instale a ferramenta de build e construa o pacote:**
 
 ```bash
-pip install build
 python -m build
+
 ```
 Você verá que um novo diretório `dist/` foi criado, contendo o arquivo `.whl` (Wheel).
 
-**5. Instale e execute sua aplicação:**
+**6. Instale e execute sua aplicação:**
 
 Agora, para testar, você pode instalar sua própria aplicação como se fosse qualquer outra biblioteca.
 
 ```bash
 # Desinstale a versão de desenvolvimento se já existir
-pip uninstall pyspark_data_pipeline -y
+pip uninstall dataeng_pyspark_data_pipeline -y
 
 # Instala o pacote que acabamos de criar
 pip install dist/*.whl
