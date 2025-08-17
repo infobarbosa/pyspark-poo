@@ -1116,7 +1116,13 @@ Agora, para testar, você pode instalar sua própria aplicação como se fosse q
     ```bash
     # Instala o pacote que acabamos de criar
     pip install dist/*.whl
-    
+
+    ```
+
+    [OPCIONAL] - Caso tenha instado antes e precise forçar a reinstalação:
+    ```
+    pip install --force-reinstall dist/dataeng_pyspark_data_pipeline-0.1.0-py3-none-any.whl
+
     ```
 
   - Executando a aplicação
