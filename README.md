@@ -1120,11 +1120,18 @@ setup(
 
 **4. Crie um arquivo `MANIFEST.in`:**
 
-```
-include requirements.txt
-include README.md
+  - O arquivo:
+  ```bash
+  touch MANIFEST.in
 
-```
+  ```
+
+  - O conteúdo:
+  ```
+  include requirements.txt
+  include README.md
+
+  ```
 
 **5. Crie o arquivo `README.md`:**
 
