@@ -1,4 +1,4 @@
-# Engenharia de Software com PySpark: De Script a uma Aplicação Robusta
+# Engenharia de Software com PySpark
 - Author: Prof. Barbosa  
 - Contact: infobarbosa@gmail.com  
 - Github: [infobarbosa](https://github.com/infobarbosa)
