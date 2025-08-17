@@ -577,22 +577,22 @@ class Transformation:
 
 - Crie uma instância da classe Transformation
   ```python
-  transform = Transformation()
+  transformer = Transformation()
   ```
 
 - Substitua `pedidos = pedidos.withColumn("valor_total"...` por:
   ```python
-  pedidos = transform.add_valor_total_pedidos(pedidos)
+  pedidos = transformer.add_valor_total_pedidos(pedidos)
   ```
 
 - Substitua `calculado = pedidos.groupBy("id_cliente")...` por:
   ```python
-  calculado = transform.get_top_10_clientes(pedidos)
+  calculado = transformer.get_top_10_clientes(pedidos)
   ``` 
 
 - Substitua `pedidos_clientes = calculado.join(clientes,...` por:
   ```python
-  pedidos_clientes = transform.join_pedidos_clientes(calculado, clientes)
+  pedidos_clientes = transformer.join_pedidos_clientes(calculado, clientes)
   ```
 
 ---
