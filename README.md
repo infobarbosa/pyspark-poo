@@ -891,6 +891,15 @@ if __name__ == "__main__":
     
     ```
 
+  - Verifique a mensagem de erro
+  
+  - Para voltar o arquivo original, execute:
+    ```bash
+    mv data/input/pedidos.gz.backup data/input/pedidos.gz
+    
+    ```
+
+
 **6. Conclusão:**
 
 Com essas mudanças, se um arquivo não for encontrado, a aplicação não vai mais quebrar com um stack trace gigante. Em vez disso, ela registrará uma mensagem de erro clara e finalizará a sessão Spark de forma segura.
