@@ -570,31 +570,37 @@ class Transformation:
 ```
 
 **4. Faça os seguintes ajustes em `main.py` :**
-- Importe o pacote processing.transformations
-  ```python
-  from processing.transformations import Transformation
-  ```
+  - Importe o pacote processing.transformations
+    ```python
+    from processing.transformations import Transformation
+    ```
 
-- Crie uma instância da classe Transformation
-  ```python
-  transformer = Transformation()
-  ```
+  - Crie uma instância da classe Transformation
+    ```python
+    transformer = Transformation()
+    ```
 
-- Substitua `pedidos = pedidos.withColumn("valor_total"...` por:
-  ```python
-  pedidos = transformer.add_valor_total_pedidos(pedidos)
-  ```
+  - Substitua `pedidos = pedidos.withColumn("valor_total"...` por:
+    ```python
+    pedidos = transformer.add_valor_total_pedidos(pedidos)
+    ```
 
-- Substitua `calculado = pedidos.groupBy("id_cliente")...` por:
-  ```python
-  calculado = transformer.get_top_10_clientes(pedidos)
-  ``` 
+  - Substitua `calculado = pedidos.groupBy("id_cliente")...` por:
+    ```python
+    calculado = transformer.get_top_10_clientes(pedidos)
+    ``` 
 
-- Substitua `pedidos_clientes = calculado.join(clientes,...` por:
-  ```python
-  pedidos_clientes = transformer.join_pedidos_clientes(calculado, clientes)
-  ```
+  - Substitua `pedidos_clientes = calculado.join(clientes,...` por:
+    ```python
+    pedidos_clientes = transformer.join_pedidos_clientes(calculado, clientes)
+    ```
 
+  - Faça o teste:
+    ```bash
+    spark-submit main.py
+
+    ```
+  
 ---
 
 ### Passo 5: Orquestrando a Aplicação no `main.py`
