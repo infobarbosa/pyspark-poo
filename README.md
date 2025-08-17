@@ -866,6 +866,22 @@ O `DataHandler` pode gerar erros durante a leitura de arquivos. Vamos adicionar 
     from pyspark.errors import AnalysisException 
     ```
 
+  - Adicionalmente vamos precisar do pacote `logging` também:
+    ```python
+    import logging
+
+    ```
+
+  - Adicione a configuração do logging:
+    ```python
+    # Configuração centralizada do logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    ```
+
   - Substituindo o trecho de código que carrega os dados de **pedidos** por:
     
     ```python
