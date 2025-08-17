@@ -804,7 +804,43 @@ class Pipeline:
         logging.info("Pipeline concluído com sucesso!")
 ```
 
-**2. Adicione Tratamento de Erros no `main.py`:**
+**2. Tratamento de erros em `data_handler.py`:**
+
+O `DataHandler` pode gerar erros durante a leitura de arquivos. Vamos adicionar um bloco `try...except`**
+  - Importando o pacote
+  
+    ```python
+    from pyspark.errors import AnalysisException 
+    ```
+
+  - Substituindo o trecho de código que carrega os dados de **pedidos** por:
+    
+    ```python
+    # src/io_utils/data_handler.py
+    def load_pedidos(self, path: str) -> DataFrame:
+        """Carrega o dataframe de pedidos a partir de um arquivo CSV."""
+        schema = self._get_schema_pedidos()
+        try:
+            return self.spark.read.option("compression", "gzip").csv(path, header=True, schema=schema, sep=";")
+        except AnalysisException as e:
+            if "PATH_NOT_FOUND" in str(e):
+                logging.error(f"Arquivo não encontrado: {path}")
+
+            raise Exception(f"Erro ao carregar pedidos: {e}")
+    ```
+
+**3. Tratamento de erros em `pipeline.py`:**
+  - Substitua o trecho por:
+    ```python
+    try:
+        pedidos_df = self.data_handler.load_pedidos(settings.PEDIDOS_PATH)
+    except Exception as e:
+        logging.error(f"Problemas ao carregar dados de pedidos: {e}")
+        return  # Interrompe o pipeline se os pedidos não puderem ser carregados
+
+    ```
+
+**4. Tratamento de Erros em `main.py`:**
 
 O ponto de entrada da nossa aplicação (`main.py`) é o lugar ideal para capturar qualquer erro que possa ocorrer durante a execução do pipeline. Vamos envolver a chamada `pipeline.run()` em um bloco `try...except`.
 
@@ -831,10 +867,8 @@ def main():
         pipeline = Pipeline(spark)
         pipeline.run()
 
-    except FileNotFoundError as e:
-        logging.error(f"Erro de arquivo não encontrado: {e}")
     except Exception as e:
-        logging.error(f"Ocorreu um erro inesperado na execução do pipeline: {e}")
+        logging.error(f"Ocorreu um erro inesperado na execução do programa: {e}")
     finally:
         if spark:
             spark.stop()
@@ -843,6 +877,21 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+
+**5. Testando:**
+  - Execute o comando a seguir no terminal:
+    ```bash
+    mv data/input/pedidos.gz data/input/pedidos.gz.backup
+
+    ```
+
+  - Execute a aplicação:
+    ```bash
+    spark-submit src/main.py
+    
+    ```
+
+**6. Conclusão:**
 
 Com essas mudanças, se um arquivo não for encontrado, a aplicação não vai mais quebrar com um stack trace gigante. Em vez disso, ela registrará uma mensagem de erro clara e finalizará a sessão Spark de forma segura.
 
