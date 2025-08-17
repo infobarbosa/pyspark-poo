@@ -942,7 +942,7 @@ Abra o `requirements.txt` e adicione a versão exata do PySpark que você está 
 
 ```
 # requirements.txt
-pyspark==3.5.0
+pyspark==4.0.0
 ```
 *(Nota: use a versão que estiver instalada no seu ambiente)*
 
@@ -952,6 +952,7 @@ A partir de agora, a forma correta de instalar as dependências do projeto é:
 
 ```bash
 pip install -r requirements.txt
+
 ```
 Isso garante que qualquer pessoa que execute seu projeto usará exatamente a mesma versão do PySpark.
 
