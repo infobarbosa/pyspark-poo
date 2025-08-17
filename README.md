@@ -597,7 +597,7 @@ class Transformation:
 
   - Faça o teste:
     ```bash
-    spark-submit main.py
+    spark-submit src/main.py
 
     ```
   
