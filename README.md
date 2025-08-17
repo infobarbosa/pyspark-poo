@@ -210,6 +210,99 @@ Deixar o Spark adivinhar o schema (`inferSchema`) é conveniente para exploraç�
 
 A solução é **sempre** definir o schema explicitamente.
 
+### Exemplo Prático: O Perigo em Ação
+
+Vamos simular um problema comum. Imagine que temos um arquivo CSV simples em `data/input/codigos.csv` com códigos de produtos. Note que alguns códigos possuem zeros à esquerda, que são importantes.
+
+**1. Crie o arquivo `data/input/codigos.csv` com o seguinte conteúdo:**
+```csv
+codigo,categoria
+0101,A
+0202,B
+303,C
+```
+
+**2. Crie um script temporário para executar o teste (ex: `test_schema.py`):**
+Agora, vamos tentar ler este arquivo com `inferSchema` e verificar o comprimento de cada código, que deveria ser 4 caracteres.
+
+```python
+# test_schema.py (TENTATIVA COM INFERÊNCIA DE SCHEMA)
+from pyspark.sql import SparkSession
+from pyspark.sql import functions as F
+
+spark = SparkSession.builder.appName("ExemploInferSchema").getOrCreate()
+
+# Lendo com inferSchema=True
+df_codigos = spark.read.csv("data/input/codigos.csv", header=True, inferSchema=True)
+
+print("Schema inferido pelo Spark:")
+df_codigos.printSchema()
+
+print("Dados lidos (com perda de dados!):")
+df_codigos.show()
+
+try:
+    # Esta operação vai falhar!
+    print("Tentando calcular o comprimento dos códigos...")
+    df_comprimento = df_codigos.withColumn("comprimento", F.length(F.col("codigo")))
+    df_comprimento.show()
+except Exception as e:
+    print(f"\nERRO! A operação falhou. Causa: O Spark inferiu 'codigo' como número e a função 'length' só funciona com texto.")
+
+spark.stop()
+```
+
+**3. Execute e veja o erro:**
+```bash
+spark-submit test_schema.py
+```
+Ao executar, você verá duas coisas:
+1.  O schema para a coluna `codigo` foi inferido como `IntegerType` (inteiro).
+2.  Nos dados exibidos, os zeros à esquerda foram perdidos (`0101` virou `101`).
+3.  A aplicação quebra com um erro, pois a função `length()` não pode ser aplicada a uma coluna do tipo inteiro.
+
+Este é um erro silencioso que se tornou um problema real. A inferência não só corrompeu os dados, como também causou uma falha na aplicação.
+
+**4. A Solução: Schema Explícito**
+A solução é definir o schema explicitamente, tratando o código como `StringType` (texto).
+
+```python
+# test_schema.py (VERSÃO CORRETA COM SCHEMA EXPLÍCITO)
+from pyspark.sql import SparkSession
+from pyspark.sql import functions as F
+from pyspark.sql.types import StructType, StructField, StringType
+
+spark = SparkSession.builder.appName("ExemploSchemaExplicito").getOrCreate()
+
+# Definindo o schema correto
+schema_correto = StructType([
+    StructField("codigo", StringType(), True),
+    StructField("categoria", StringType(), True)
+])
+
+# Lendo com o schema correto
+df_codigos_correto = spark.read.csv("data/input/codigos.csv", header=True, schema=schema_correto)
+
+print("Schema explícito definido:")
+df_codigos_correto.printSchema()
+
+print("Dados lidos corretamente:
+")
+df_codigos_correto.show()
+
+# Agora a operação funciona!
+df_comprimento_correto = df_codigos_correto.withColumn("comprimento", F.length(F.col("codigo")))
+print("Cálculo do comprimento bem-sucedido:")
+df_comprimento_correto.show()
+
+spark.stop()
+```
+Com o schema explícito, os dados são lidos corretamente, os zeros à esquerda são preservados e a operação de string funciona como esperado. Este exemplo simples demonstra por que definir schemas é uma regra de ouro em pipelines de dados robustos.
+
+---
+A solução é **sempre** definir o schema explicitamente.
+
+
 **1. Defina os Schemas com `StructType`:**
 
 Vamos usar `StructType` e `StructField` para declarar a estrutura exata dos nossos dados.
