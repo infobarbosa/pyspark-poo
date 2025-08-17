@@ -1036,7 +1036,7 @@ classifiers = [
 dynamic = ["dependencies"]
 
 [project.scripts]
-run-data-pipeline = "src.main:main"
+run-data-pipeline = "main:main"
 ```
 
 **3. Crie um `setup.py` para linkar o `requirements.txt`:**
@@ -1046,6 +1046,7 @@ Para que o `pyproject.toml` consiga ler as dependências do `requirements.txt`, 
 Crie o arquivo `setup.py` na raiz do projeto:
 ```bash
 touch setup.py
+
 ```
 
 Adicione o seguinte conteúdo a ele:
@@ -1060,7 +1061,8 @@ with open('requirements.txt') as f:
 setup(
     name='dataeng_pyspark_data_pipeline',
     version='0.1.0',
-    packages=find_packages(),
+    package_dir={'': 'src'},
+    packages=find_packages(where='src'),
     install_requires=requirements,
 )
 ```
