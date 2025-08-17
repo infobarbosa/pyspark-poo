@@ -59,7 +59,7 @@ Antes de começar, prepare seu ambiente:
 
     Um olhada rápida no arquivo de clientes
     ```bash
-    zcat ./data/clientes.gz | head -n 5
+    gunzip -c data/clientes.gz | head -n 5
 
     ```
 
@@ -71,7 +71,7 @@ Antes de começar, prepare seu ambiente:
 
     Uma olhada rápida no arquivo de pedidos
     ```bash
-    zcat ./data/pedidos.gz | head -n 5
+    gunzip -c ./data/pedidos.gz | head -n 5
     
     ```
 
