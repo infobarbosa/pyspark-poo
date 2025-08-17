@@ -966,9 +966,9 @@ Para manter nosso código limpo, legível e livre de erros comuns, vamos usar du
 
 ```
 # requirements.txt
-pyspark==3.5.0
-ruff==0.1.6
-black==23.11.0
+pyspark==4.0.0
+ruff==0.12.9
+black==25.1.0
 ```
 *(Nota: você pode usar versões mais recentes se desejar)*
 
