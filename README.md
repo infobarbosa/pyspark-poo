@@ -20,6 +20,7 @@ Este repositório é um guia passo a passo para refatorar um script PySpark mono
 12. [Passo 8: Gerenciando Dependências com `requirements.txt`](#passo-8-gerenciando-dependências-com-requirementstxt)
 13. [Passo 9: Garantindo a Qualidade do Código com Linter e Formatador](#passo-9-garantindo-a-qualidade-do-código-com-linter-e-formatador)
 14. [Passo 10: Empacotando a Aplicação para Distribuição](#passo-10-empacotando-a-aplicação-para-distribuição)
+15. [Passo 11: Garantido a qualidade com testes](#passo-11-garantindo-a-qualidade-com-testes)
 
 ---
 
@@ -1294,7 +1295,7 @@ Agora, para testar, você pode instalar sua própria aplicação como se fosse q
 
     ```
 
-### Passo 11: Garantindo a Lógica de Negócio com Testes Unitários
+### Passo 11: Garantido a qualidade com testes
 
 Até agora, construímos uma aplicação robusta, bem estruturada e distribuível. Mas como podemos garantir que a lógica de negócio — o coração da nossa aplicação — está funcionando corretamente e continuará funcionando conforme o projeto evolui? A resposta é: **testes automatizados**.
 
