@@ -1328,28 +1328,91 @@ def test_add_valor_total_pedidos(spark_session):
     - **Act**: Chamamos o método `add_valor_total_pedidos` com nosso DataFrame de teste.
     - **Assert**: Comparamos o resultado. Como a ordem das linhas em um DataFrame não é garantida, a forma mais segura de comparar é coletar os resultados (`.collect()`), ordená-los e então comparar as listas de objetos Python. Também verificamos se o número de linhas e as colunas são idênticos.
 
-**4. Executando os Testes:**
+**4. Adicionando um Segundo Teste:**
+
+Para solidificar o conceito, vamos adicionar um teste para o método `get_top_10_clientes`. A estratégia será criar um cenário com mais de 10 clientes para garantir que a lógica de agregação, soma e limite funcione corretamente.
+
+Adicione o seguinte teste ao final do arquivo `tests/test_transformations.py`:
+
+```python
+def test_get_top_10_clientes(spark_session):
+    """
+    Testa a função get_top_10_clientes para garantir que ela agrupa,
+    soma os valores totais por cliente e retorna apenas os 10 maiores,
+    ordenados corretamente.
+    """
+    # 1. Arrange
+    transformer = Transformation()
+
+    schema_entrada = StructType([
+        StructField("id_cliente", LongType(), True),
+        StructField("valor_total", FloatType(), True),
+    ])
+    # Criando 12 clientes para garantir que o limit(10) funcione
+    dados_entrada = [
+        (1, 100.0), (2, 200.0), (1, 50.0),   # Cliente 1: total 150.0
+        (3, 300.0), (4, 400.0), (5, 500.0),
+        (6, 600.0), (7, 700.0), (8, 800.0),
+        (9, 900.0), (10, 1000.0), (11, 1100.0),
+        (12, 50.0)
+    ]
+    df_entrada = spark_session.createDataFrame(dados_entrada, schema_entrada)
+
+    # O resultado esperado deve conter os 10 clientes com maiores valores,
+    # ordenados de forma decrescente.
+    schema_esperado = StructType([
+        StructField("id_cliente", LongType(), True),
+        StructField("valor_total", FloatType(), True)
+    ])
+    dados_esperados = [
+        (11, 1100.0),
+        (10, 1000.0),
+        (9, 900.0),
+        (8, 800.0),
+        (7, 700.0),
+        (6, 600.0),
+        (5, 500.0),
+        (4, 400.0),
+        (3, 300.0),
+        (2, 200.0) # Cliente 1 (total 150.0) e 12 (total 50.0) devem ficar de fora
+    ]
+    df_esperado = spark_session.createDataFrame(dados_esperados, schema_esperado)
+
+    # 2. Act
+    df_resultado = transformer.get_top_10_clientes(df_entrada)
+
+    # 3. Assert
+    # A ordem é importante neste teste, então coletamos os dados como estão
+    resultado_coletado = [row.asDict() for row in df_resultado.collect()]
+    esperado_coletado = [row.asDict() for row in df_esperado.collect()]
+
+    assert df_resultado.count() == 10, "O DataFrame resultante deve ter exatamente 10 linhas."
+    assert df_resultado.columns == df_esperado.columns, "As colunas não correspondem ao esperado."
+    assert resultado_coletado == esperado_coletado, "Os dados dos 10 maiores clientes não correspondem ao esperado."
+
+```
+
+**5. Executando os Testes:**
 
 Para rodar todos os testes do seu projeto, basta executar o comando `pytest` na raiz do seu diretório:
 
 ```bash
 pytest
-
 ```
 
-Se tudo estiver correto, você verá uma saída indicando que o teste passou:
+Agora, o `pytest` encontrará e executará os dois testes. A saída deve ser:
 
 ```
 ============================= test session starts ==============================
 ...
-collected 1 item
+collected 2 items
 
-tests/test_transformations.py .                                          [100%]
+tests/test_transformations.py ..                                         [100%]
 
-============================== 1 passed in ...s ===============================
+============================== 2 passed in ...s ===============================
 ```
 
-Agora você tem uma rede de segurança! Antes de distribuir uma nova versão da sua aplicação, você pode rodar `pytest` para garantir que a lógica de negócio principal continua intacta.
+Com dois testes, sua rede de segurança está ainda mais forte. Você pode seguir este padrão para testar todas as funções críticas da sua lógica de negócio.
 
 ---
 
