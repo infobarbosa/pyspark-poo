@@ -1105,18 +1105,29 @@ Você verá que um novo diretório `dist/` foi criado, contendo o arquivo `.whl`
 
 Agora, para testar, você pode instalar sua própria aplicação como se fosse qualquer outra biblioteca.
 
-```bash
-# Desinstale a versão de desenvolvimento se já existir
-pip uninstall dataeng_pyspark_data_pipeline -y
+  - Desinstalando a versão anterior se existir
+    ```bash
+    # Desinstale a versão de desenvolvimento se já existir
+    pip uninstall dataeng_pyspark_data_pipeline -y
 
-# Instala o pacote que acabamos de criar
-pip install dist/*.whl
+    ```
 
-# Agora, execute o pipeline com o novo comando!
-run-data-pipeline
-```
+  - Instalando a versão distribuída
+    ```bash
+    # Instala o pacote que acabamos de criar
+    pip install dist/*.whl
+    ```
 
-Parabéns! Você completou a jornada de transformar um simples script em uma aplicação Python robusta, de alta qualidade e distribuível.
+  - Executando a aplicação
+    ```bash
+    spark-submit --master local[*] \
+    --py-files dist/dataeng_pyspark_data_pipeline-0.1.0-py3-none-any.whl \
+    src/main.py
+
+    ```
+
+## Parabéns! 
+Você completou a jornada de transformar um simples script em uma aplicação Python robusta, de alta qualidade e distribuível.
 
 
 
