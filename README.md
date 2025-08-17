@@ -38,7 +38,31 @@ Antes de começar, prepare seu ambiente:
 
   ```
 
-2.  **Crie uma pasta para o projeto:**
+2. **Instale o Python 3.12:**
+  - Adicionando o repositório:
+    ```bash
+    sudo add-apt-repository ppa:deadsnakes/ppa -y
+
+    ```
+  - Instalando o Python
+    ```bash
+    sudo apt install python3.12 -y
+
+    ```
+
+  - Ajustando o Python 3.12 como default
+    ```bash
+    sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
+
+    ```
+
+    ```bash
+    sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 2
+
+    ```
+
+
+3.  **Crie uma pasta para o projeto:**
     ```bash
     mkdir -p data-engineering-pyspark/src
     mkdir -p data-engineering-pyspark/data/input
@@ -51,7 +75,7 @@ Antes de começar, prepare seu ambiente:
     
     ```
 
-3.  **Crie um ambiente virtual e instale as dependências:**
+4.  **Crie um ambiente virtual e instale as dependências:**
     ```bash
     python3 -m venv .venv
     
@@ -67,7 +91,7 @@ Antes de começar, prepare seu ambiente:
     
     ```
 
-4.  **Baixe os datasets:**
+5.  **Baixe os datasets:**
     Execute o script para baixar os dados necessários para a pasta `data/`.
     
     **Clientes**
