@@ -9,7 +9,7 @@ Este repositório é um guia passo a passo para refatorar um script PySpark mono
 1. [Configuração Inicial](#configuração-inicial)
 2. [O Ponto de Partida: Script com Inferência de Schema](#o-ponto-de-partida-script-com-inferência-de-schema)
 3. [Passo 0: A Importância de Definir Schemas Explícitos](#passo-0-a-importância-de-definir-schemas-explícitos)
-4. [Rumo à Engenharia de Software: O Plano de Batalha](#rumo-à-engenharia-de-software-o-plano-de-batalha)
+4. [Planejamento](#planejamento)
 5. [Passo 1: Centralizando as Configurações](#passo-1-centralizando-as-configurações)
 6. [Passo 2: Gerenciando a Sessão Spark](#passo-2-gerenciando-a-sessão-spark)
 7. [Passo 3: Unificando a Leitura e Escrita de Dados (I/O)](#passo-3-unificando-a-leitura-e-escrita-de-dados-io)
