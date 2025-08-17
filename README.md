@@ -830,7 +830,7 @@ O `DataHandler` pode gerar erros durante a leitura de arquivos. Vamos adicionar 
     ```
 
 **3. Tratamento de erros em `pipeline.py`:**
-  - Substitua o trecho por:
+  - Substitua o trecho `pedidos_df = self.data_handler...` por:
     ```python
     try:
         pedidos_df = self.data_handler.load_pedidos(settings.PEDIDOS_PATH)
