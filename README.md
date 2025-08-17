@@ -654,6 +654,12 @@ if __name__ == "__main__":
     main()
 ```
 
+Faça o teste:
+```bash
+spark-submit src/main.py
+
+```
+
 #### O que ganhamos com esta nova estrutura?
 
 -   **Organização Superior:** Cada parte da aplicação tem seu lugar. Se precisar alterar algo sobre a sessão Spark, você sabe que deve ir em `src/session`. Se a forma de ler um arquivo mudar, o lugar é `src/io`.
