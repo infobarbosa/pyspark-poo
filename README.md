@@ -1006,6 +1006,7 @@ Este é o arquivo de configuração padrão para projetos Python modernos. Crie-
 
 ```bash
 touch pyproject.toml
+
 ```
 
 **2. Adicione o conteúdo de configuração:**
@@ -1022,22 +1023,17 @@ build-backend = "setuptools.build_meta"
 name = "dataeng_pyspark_data_pipeline"
 version = "0.1.0"
 authors = [
-  { name="<SEU NOME>", email="<SEU EMAIL>" },
+  { name="infobarbosa", email="infobarbosa@gmail.com" },
 ]
 description = "Um pipeline de dados com PySpark estruturado com boas práticas de engenharia de software."
 readme = "README.md"
 requires-python = ">=3.8"
+license = "MIT"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-
-[project.dependencies]
-# O setuptools lerá as dependências do `requirements.txt`
-# Esta é uma forma de manter uma única fonte da verdade.
-# Para que isso funcione, precisamos de um `setup.py` mínimo.
-# (Instruções no próximo passo)
+dynamic = ["dependencies"]
 
 [project.scripts]
 run-data-pipeline = "src.main:main"
@@ -1069,7 +1065,23 @@ setup(
 )
 ```
 
-**4. Adicione o pacote `build` a `requirements.txt`:**
+**4. Crie um arquivo `MANIFEST.in`:**
+
+```
+include requirements.txt
+include README.md
+
+```
+
+**5. Crie o arquivo `README.md`:**
+
+Este é o arquivo que será exibido quando alguém acessar o repositório.
+```bash
+echo "[DATAENG] Meu projeto bem estruturado de dados com PySpark" > README.md
+
+```
+
+**6. Adicione o pacote `build` a `requirements.txt`:**
 ```
 # requirements.txt
 pyspark==4.0.0
@@ -1078,12 +1090,13 @@ black==25.1.0
 build==1.3.0
 ```
 
-**5. Instale a ferramenta de build e construa o pacote:**
+**7. Construa o pacote:**
 
 ```bash
 python -m build
 
 ```
+
 Você verá que um novo diretório `dist/` foi criado, contendo o arquivo `.whl` (Wheel).
 
 **6. Instale e execute sua aplicação:**
