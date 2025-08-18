@@ -808,20 +808,27 @@ A ideia é simples: em vez de uma classe ou função criar os objetos de que pre
 
 Vamos criar uma classe `Pipeline` que conterá toda a lógica de orquestração. O `main.py` se tornará a **"Raiz de Composição"** (`Composition Root`), o único lugar responsável por montar e "ligar" os componentes da nossa aplicação.
 
-**1. Crie o arquivo `src/pipeline.py`:**
+**1. Crie o arquivo `src/pipeline/pipeline.py`:**
 
 Este arquivo irá abrigar nossa nova classe orquestradora.
 
 ```bash
-touch src/pipeline.py
+mkdir -p src/pipeline
+touch src/pipeline/__init__.py
+
 ```
 
-**2. Adicione o seguinte código ao `src/pipeline.py`:**
+```bash
+touch src/pipeline/pipeline.py
+
+```
+
+**2. Adicione o seguinte código ao `src/pipeline/pipeline.py`:**
 
 A classe `Pipeline` receberá a sessão Spark como uma dependência em seu construtor. Ela então usará essa sessão para inicializar seus próprios componentes, como o `DataHandler`.
 
 ```python
-# src/pipeline.py
+# src/pipeline/pipeline.py
 from pyspark.sql import SparkSession
 from io_utils.data_handler import DataHandler
 from processing.transformations import Transformation
@@ -873,7 +880,7 @@ Substitua todo o conteúdo do `src/main.py` por este código:
 ```python
 # src/main.py
 from session.spark_session import SparkSessionManager
-from pipeline import Pipeline
+from pipeline.pipeline import Pipeline
 
 def main():
     """
@@ -897,10 +904,11 @@ if __name__ == "__main__":
 
 **4. Garanta que o diretório `src` seja um pacote Python:**
 
-Para que os imports como `from pipeline import Pipeline` funcionem corretamente, o Python precisa tratar o diretório `src` como um "pacote". Para isso, crie um arquivo `__init__.py` vazio dentro dele.
+Para que os imports como `from pipeline.pipeline import Pipeline` funcionem corretamente, o Python precisa tratar o diretório `src` como um "pacote". Para isso, crie um arquivo `__init__.py` vazio dentro dele.
 
 ```bash
 touch src/__init__.py
+
 ```
 
 **5. Faça o teste:**
@@ -1081,6 +1089,7 @@ Na raiz do seu projeto, crie um arquivo chamado `requirements.txt`.
 
 ```bash
 touch requirements.txt
+
 ```
 
 **2. Adicione a dependência do PySpark:**
@@ -1123,6 +1132,7 @@ black==25.1.0
 
 ```bash
 pip install -r requirements.txt
+
 ```
 
 **3. Como usar as ferramentas:**
@@ -1131,12 +1141,14 @@ pip install -r requirements.txt
     Execute o `ruff` na raiz do projeto. Ele apontará problemas de estilo, bugs potenciais e código não utilizado.
     ```bash
     ruff check .
+
     ```
 
 -   **Para formatar o código automaticamente (Formatação):**
     Execute o `black` na raiz do projeto. Ele irá reformatar todos os seus arquivos `.py` para um estilo consistente.
     ```bash
     black .
+
     ```
 
 Adotar essas ferramentas torna o código mais profissional e fácil de manter, especialmente ao trabalhar em equipe.
