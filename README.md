@@ -1180,7 +1180,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dataeng_pyspark_data_pipeline"
-version = "0.1.0"
+version = "0.1.2"
 authors = [
   { name="infobarbosa", email="infobarbosa@gmail.com" },
 ]
@@ -1192,41 +1192,27 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
 ]
-dynamic = ["dependencies"]
+dependencies = [
+    "pyspark==4.0.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff==0.12.9",
+    "black==25.1.0",
+    "build==1.3.0"
+]
 
 [project.scripts]
 run-data-pipeline = "main:main"
-```
 
-**3. Crie um `setup.py` para linkar o `requirements.txt`:**
-
-Para que o `pyproject.toml` consiga ler as dependências do `requirements.txt`, precisamos de um pequeno arquivo `setup.py` que faça essa ponte.
-
-Crie o arquivo `setup.py` na raiz do projeto:
-```bash
-touch setup.py
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = {find = {where = ["src"]}}
 
 ```
 
-Adicione o seguinte conteúdo a ele:
-```python
-# setup.py
-from setuptools import setup, find_packages
-
-# Lê o conteúdo do requirements.txt
-with open('requirements.txt') as f:
-    requirements = f.read().splitlines()
-
-setup(
-    name='dataeng_pyspark_data_pipeline',
-    version='0.1.0',
-    package_dir={'': 'src'},
-    packages=find_packages(where='src'),
-    install_requires=requirements,
-)
-```
-
-**4. Crie um arquivo `MANIFEST.in`:**
+**3. Crie um arquivo `MANIFEST.in`:**
 
   - O arquivo:
   ```bash
@@ -1241,7 +1227,7 @@ setup(
 
   ```
 
-**5. Crie o arquivo `README.md`:**
+**4. Crie o arquivo `README.md`:**
 
 Este é o arquivo que será exibido quando alguém acessar o repositório.
 ```bash
@@ -1249,7 +1235,7 @@ echo "[DATAENG] Meu projeto bem estruturado de dados com PySpark" > README.md
 
 ```
 
-**6. Adicione o pacote `build` a `requirements.txt`:**
+**5. Adicione o pacote `build` a `requirements.txt`:**
   - Configurando o arquivo:
 
     ```
@@ -1266,7 +1252,7 @@ echo "[DATAENG] Meu projeto bem estruturado de dados com PySpark" > README.md
 
     ```
 
-**7. Construa o pacote:**
+**6. Construa o pacote:**
 
 ```bash
 python -m build
