@@ -1516,8 +1516,7 @@ Você completou a jornada de transformar um simples script em uma aplicação Py
 
 ## Desafio
 
-Agora é a sua vez! Neste desafio você deve criar um pacote distribuível (.whl) 
-que resolva a seguinte questão:
+Agora é a sua vez! Neste desafio você deve criar um projeto que resolva a seguinte questão:
 
 A alta gestão da empresa deseja um relatório de pedidos de venda cujo pagamentos recusados (status=false) e que na avaliação de fraude foram classificados como legítimos (fraude=false).<br>
 O relatório deve ter os seguintes atributos:
@@ -1528,28 +1527,11 @@ O relatório deve ter os seguintes atributos:
 
 O relatório deve compreender pedidos apenas do ano de 2025.
 
-### Dataset de Pagamentos
-
-O dataset de pagamentos está disponível no seguinte repositório:
-```
-https://github.com/infobarbosa/dataset-json-pagamentos
-```
-Utilize os arquivos no caminho `dataset-json-pagamentos/data/pagamentos`.<br>
-As especificações do dataset (formato, estrutura de atributos, etc) estão disponíveis no próprio repositório.
-
-### Dataset de pedidos
-O dataset de pedidos está disponível no seguinte repositório:
-```
-https://github.com/infobarbosa/datasets-csv-pedidos
-```
-Utilize os arquivos no caminho `datasets-csv-pedidos/data/pedidos/`.<br>
-As especificações do dataset (formato, estrutura de atributos, etc) estão disponíveis no próprio repositório.
-
-### Requisitos do desafio
-Seu pacote deve contemplar os seguintes requisitos:
+### Critérios de avaliação
+Seu projeto deve contemplar os seguintes requisitos:
 
 1. **Schemas explícitos**
-  - TODOS os datasets devem ter seus schemas explicitamente definidos (sem inferência)
+  - TODOS os dataframes devem ter seus schemas explicitamente definidos (sem inferência)
 2. **Orientação a objetos**
   - TODOS os componentes do projeto devem ser encapsulados em CLASSES.
 3. **Injeção de Dependências**
@@ -1599,6 +1581,31 @@ Seu pacote deve contemplar os seguintes requisitos:
   - CRIAR pelo menos um teste unitário para a classe de lógica de negócios.
   - O teste deve ser executado com sucesso.
   - Utilizar o pacote `pytest`.
+
+--
+
+### Material de apoio
+	Todo o material de apoio, instruções e conteúdo pedagógico pode ser encontrado no repositório https://github.com/infobarbosa/pyspark-poo .
+
+--
+
+### Datasets
+#### Dataset de Pagamentos
+
+O dataset de pagamentos está disponível no seguinte repositório:
+```
+https://github.com/infobarbosa/dataset-json-pagamentos
+```
+Utilize os arquivos no caminho `dataset-json-pagamentos/data/pagamentos`.<br>
+As especificações do dataset (formato, estrutura de atributos, etc) estão disponíveis no próprio repositório.
+
+#### Dataset de pedidos
+O dataset de pedidos está disponível no seguinte repositório:
+```
+https://github.com/infobarbosa/datasets-csv-pedidos
+```
+Utilize os arquivos no caminho `datasets-csv-pedidos/data/pedidos/`.<br>
+As especificações do dataset (formato, estrutura de atributos, etc) estão disponíveis no próprio repositório.
 
 ---
 
