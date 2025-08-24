@@ -1548,11 +1548,11 @@ As especificações do dataset (formato, estrutura de atributos, etc) estão dis
 ### Requisitos do desafio
 Seu pacote deve contemplar os seguintes requisitos:
 
-1. Schemas explícitos 
+1. **Schemas explícitos**
   - TODOS os datasets devem ter seus schemas explicitamente definidos (sem inferência)
-2. Orientação a objetos
+2. **Orientação a objetos**
   - TODOS os componentes do projeto devem ser encapsulados em CLASSES.
-3. Injeção de Dependências
+3. **Injeção de Dependências**
   - UTILIZAR o `main.py` como Aggregation Root
   - INSTANCIAR todas as dependências no fluxo principal em `main.py`
   - INJETAR as dependências via aggregation root
@@ -1562,40 +1562,40 @@ Seu pacote deve contemplar os seguintes requisitos:
     * Classes de leitura e escrita de dados
     * Classes de lógica de negócios
     * Classes de orquestração do pipeline
-4. Configurações centralizadas
+4. **Configurações centralizadas**
   - DEFINIR um pacote de configurações 
   - DEFINIR pelo menos UMA classe de configuração 
   - UTILIZAR a configuração no fluxo principal
-5. Sessão Spark
+5. **Sessão Spark**
   - DEFINIR um pacote de gerenciamento da sessão spark
   - CRIAR uma classe de gerenciamento de sessão spark
   - UTILIZAR a sessão spark no fluxo principal
-6. Leitura e Escrita de Dados (I/O)
+6. **Leitura e Escrita de Dados (I/O)**
   - DEFINIR pelo menos um pacote de leitura e escrita de dados
   - CRIAR pelo menos uma classe de leitura e escrita de dados
   - UTILIZAR os pacotes de leitura e escrita no fluxo principal
-7. Lógica de Negócio
+7. **Lógica de Negócio**
   - DEFINIR um pacote de lógica de negócios
   - CRIAR pelo menos uma classe de lógica de negócios
   - UTILIZAR o pacote de lógica de negócios no fluxo principal
-8. Orquestração do pipeline
+8. **Orquestração do pipeline**
   - DEFINIR um pacote de orquestração do pipeline
   - CRIAR pelo menos uma classe de orquestração do pipeline
   - UTILIZAR o pacote de orquestração no fluxo principal
-9. Logging
+9. **Logging**
   - IMPORTAR o pacote `logging` na classe de lógica de negócios.
   - CONFIGURAR o logging
     * Exemplo: `logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')`
   - UTILIZAR o logging para registro das etapas do pipeline.
-10. Tratamento de Erros
+10. **Tratamento de Erros**
   - UTILIZAR a estrutura `try/catch` para tratamento de erros na classe de lógica de negócios.
   - UTILIZAR logging para registro do erro capturado.
-11. Empacotamento da aplicação
+11. **Empacotamento da aplicação**
   - CRIAR o arquivo `pyproject.toml`
   - CRIAR o arquivo `requirements.txt`
   - CRIAR o arquivo `README.md`
   - CRIAR o arquivo `MANIFEST.in`
-12. Testes unitários
+12. **Testes unitários**
   - CRIAR pelo menos um teste unitário para a classe de lógica de negócios.
   - O teste deve ser executado com sucesso.
   - Utilizar o pacote `pytest`.
