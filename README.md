@@ -931,35 +931,88 @@ Este design nos prepara para o próximo nível de maturidade de software: **test
 
 Uma aplicação robusta não usa `print()` para registrar seu progresso e não quebra sem dar informações claras. Vamos substituir nossos `prints` por um sistema de **logging** profissional e adicionar um **tratamento de erros** para tornar nosso pipeline mais resiliente.
 
-**1. Configure o Logging no `pipeline.py`:**
+A sua aplicação (o ponto de entrada, como main.py ou app.py) é responsável por configurar o logging. É aqui que você decide para onde as mensagens vão (console, arquivo, etc.), qual o formato delas e qual o nível mínimo de severidade a ser registrado.
 
-Usaremos o módulo `logging` do Python. Ele nos permite registrar mensagens com diferentes níveis de severidade (ex: `INFO`, `ERROR`) e formatá-las de maneira consistente.
+Os seus módulos e pacotes (as "bibliotecas" do seu projeto) nunca devem configurar o logging. Eles devem apenas pedir um logger e usá-lo para enviar mensagens.<br>
+Isso evita que um módulo sobreponha a configuração de outro, garantindo um comportamento uniforme e previsível em todo o projeto.
 
-Adicione a configuração do logger no início do arquivo `src/pipeline.py` e substitua todos os `print()` por chamadas ao `logging`.
+#### A Hierarquia de Loggers
+O módulo `logging` do Python organiza os loggers em uma hierarquia baseada em nomes separados por pontos. Por exemplo, um logger chamado pacote1.modulo1 é filho do logger pacote1, que por sua vez é filho do logger raiz (root).
+
+A grande vantagem é que, por padrão, as mensagens de um logger filho são propagadas para os "handlers" (manipuladores) do seu logger pai. É por isso que podemos configurar o logger raiz uma única vez e todos os outros loggers do projeto enviarão suas mensagens para os handlers configurados nele.
+
+A melhor prática é obter um logger em cada módulo usando a variável especial __name__:
 
 ```python
-# src/pipeline.py
 import logging
-from pyspark.sql import SparkSession
-from io_utils.data_handler import DataHandler
-from processing.transformations import Transformation
-import config.settings as settings
-
-# Configuração centralizada do logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-
-class Pipeline:
-    # ... (o construtor __init__ permanece o mesmo) ...
-
-    def run(self):
-        logging.info("Pipeline iniciado...")
-        # ... (substitua os prints por logging.info) ...
-        logging.info("Pipeline concluído com sucesso!")
+logger = logging.getLogger(__name__)
 ```
+
+**1. Configure o Logging**
+
+  - Em `src/main.py`, adicione as linhas abaixo:
+    ```python
+    # importe o pacote logging
+    import logging
+    # outros imports...
+    ```
+
+    ```python
+    # Crie a configuração do logging
+    def configurar_logging():
+      """Configura o logging para todo o projeto."""
+      logging.basicConfig(
+          # Nível mínimo de severidade para ser registrado.
+          # DEBUG < INFO < WARNING < ERROR < CRITICAL
+          level=logging.INFO,
+
+          # Formato da mensagem de log.
+          format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+          datefmt='%Y-%m-%d %H:%M:%S',
+
+          # Lista de handlers. Aqui, estamos logando para um arquivo e para o console.
+          handlers=[
+              logging.FileHandler("dataeng-pyspark-poo.log"), # Log para arquivo
+              logging.StreamHandler()                         # Log para o console (terminal)
+          ]
+      )
+      logging.info("Logging configurado.")
+
+    ```
+
+    ```python
+    # Chame a configuração do logging no ponto de entrada da aplicação
+    if __name__ == "__main__":
+
+      configurar_logging()
+
+      logging.info("Aplicação iniciada.")
+
+      # continua para a sua lógica
+    ```
+
+  - Em todas as classes, adicione a configuração do logger no início do arquivo e substitua todos os `print()` por chamadas ao `logging`.<br>
+
+    Abaixo está um exemplo na classe `src/pipeline.py`:
+
+    ```python
+    # src/pipeline.py
+    import logging
+    from pyspark.sql import SparkSession
+    from io_utils.data_handler import DataHandler
+    from processing.transformations import Transformation
+    import config.settings as settings
+
+    logger = logging.getLogger(__name__)
+
+    class Pipeline:
+        # ... (o construtor __init__ permanece o mesmo) ...
+
+        def run(self):
+            logger.info("Pipeline iniciado...")
+            # ... (substitua os prints por logging.info) ...
+            logger.info("Pipeline concluído com sucesso!")
+    ```
 
 **2. Tratamento de erros em `data_handler.py`:**
 
@@ -979,11 +1032,8 @@ O `DataHandler` pode gerar erros durante a leitura de arquivos. Vamos adicionar 
   - Adicione a configuração do logging:
     ```python
     # Configuração centralizada do logging
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
+    logger = logging.getLogger(__name__)
+
     ```
 
   - Substituindo o trecho de código que carrega os dados de **pedidos** por:
@@ -997,7 +1047,7 @@ O `DataHandler` pode gerar erros durante a leitura de arquivos. Vamos adicionar 
             return self.spark.read.option("compression", "gzip").csv(path, header=True, schema=schema, sep=";")
         except AnalysisException as e:
             if "PATH_NOT_FOUND" in str(e):
-                logging.error(f"Arquivo não encontrado: {path}")
+                logger.error(f"Arquivo não encontrado: {path}")
 
             raise Exception(f"Erro ao carregar pedidos: {e}")
     ```
@@ -1008,7 +1058,7 @@ O `DataHandler` pode gerar erros durante a leitura de arquivos. Vamos adicionar 
     try:
         pedidos_df = self.data_handler.load_pedidos(settings.PEDIDOS_PATH)
     except Exception as e:
-        logging.error(f"Problemas ao carregar dados de pedidos: {e}")
+        logger.error(f"Problemas ao carregar dados de pedidos: {e}")
         return  # Interrompe o pipeline se os pedidos não puderem ser carregados
 
     ```
@@ -1025,8 +1075,19 @@ import logging
 from session.spark_session import SparkSessionManager
 from pipeline import Pipeline
 
-# A configuração do logging também pode ser feita aqui
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+def configurar_logging():
+  """Configura o logging para todo o projeto."""
+  logging.basicConfig(
+      level=logging.INFO,
+      format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+      datefmt='%Y-%m-%d %H:%M:%S',
+
+      handlers=[
+          logging.FileHandler("dataeng-pyspark-poo.log"),
+          logging.StreamHandler()
+      ]
+  )
+  logging.info("Logging configurado.")
 
 def main():
     """
