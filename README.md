@@ -31,15 +31,15 @@ Antes de começar, prepare seu ambiente:
 ATENÇÃO! Se estiver utilizando Cloud9, utilize esse [tutorial](https://github.com/infobarbosa/data-engineering-cloud9]).
 
 1. **Instale o Java 17:**
-  ```bash
-  sudo apt upgrade -y && sudo apt update -y
+    ```bash
+    sudo apt upgrade -y && sudo apt update -y
 
-  ```
+    ```
 
-  ```bash
-  sudo apt install -y openjdk-17-jdk
+    ```bash
+    sudo apt install -y openjdk-17-jdk
 
-  ```
+    ```
 
 2.  **Crie uma pasta para o projeto:**
     ```bash
