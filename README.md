@@ -563,8 +563,6 @@ Ambientes de produção modernos usam formatos como YAML ou JSON, que são agnó
       
   ```
 
----
-
 4. Substitua todo o conteúdo do arquivo `src/config/settings.py`:
 
   ```python
@@ -628,12 +626,8 @@ Ambientes de produção modernos usam formatos como YAML ou JSON, que são agnó
   path_output = config['paths']['output']
   pedidos_clientes.write.mode("overwrite").parquet(path_output)
   ```
-  
+
 ---
-
-
-
-
 
 ## Passo 3: Gerenciando a Sessão Spark
 
@@ -1329,6 +1323,7 @@ Abra o `requirements.txt` e adicione a versão exata do PySpark que você está 
   ```
   # requirements.txt
   pyspark==4.0.0
+  pyyaml==6.0.3
 
   ```
   
@@ -1355,6 +1350,7 @@ Para manter nosso código limpo, legível e livre de erros comuns, vamos usar du
   ```
   # requirements.txt
   pyspark==4.0.0
+  pyyaml==6.0.3
   ruff==0.12.9
   black==25.1.0
   ```
@@ -1427,6 +1423,7 @@ Copie o seguinte conteúdo para o seu `pyproject.toml`. Ele define o nome do nos
   ]
   dependencies = [
       "pyspark==4.0.0"
+      "pyyaml==6.0.3"
   ]
 
   [project.optional-dependencies]
@@ -1474,6 +1471,7 @@ Este é o arquivo que será exibido quando alguém acessar o repositório.
     ```
     # requirements.txt
     pyspark==4.0.0
+    pyyaml==6.0.3
     ruff==0.12.9
     black==25.1.0
     build==1.3.0
@@ -1545,6 +1543,7 @@ Vamos focar em **testes unitários** para nossa classe `Transformation`, pois el
   ```
   # requirements.txt
   pyspark==4.0.0
+  pyyaml==6.0.3
   ruff==0.12.9
   black==25.1.0
   build==1.3.0
