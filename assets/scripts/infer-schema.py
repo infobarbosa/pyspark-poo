@@ -33,7 +33,7 @@ percentual_bonus = 0.5
 # O analista João Silva, cujo código era "0101", agora tem o código 101.
 # Ele receberá indevidamente o bônus do diretor!
 print(f"\nCalculando bônus de {percentual_bonus:.0%} para o código '{cod_bonus_diretor}'...")
-df_bonus = df_inferido.withColumn(
+df_bonus = df.withColumn(
     "valor_bonus",
     F.when(F.col("cod_bonus") == cod_bonus_diretor, F.col("salario") * percentual_bonus).otherwise(0)
 )
