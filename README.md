@@ -7,20 +7,20 @@ Este repositório é um guia passo a passo para refatorar um script PySpark mono
 
 ## Sumário
 1. [Configuração Inicial](#configuração-inicial)
-2. [O Ponto de Partida: Script com Inferência de Schema](#o-ponto-de-partida-script-com-inferência-de-schema)
-3. [Passo 0: A Importância de Definir Schemas Explícitos](#passo-0-a-importância-de-definir-schemas-explícitos)
+2. [O Ponto de Partida: Script com Inferência de Schema](#o-ponto-de-partida)
+3. [Passo 1: A Importância de Definir Schemas Explícitos](#pass1-0-a-importância-de-definir-schemas-explícitos)
 4. [Planejamento](#planejamento)
-5. [Passo 1: Centralizando as Configurações](#passo-1-centralizando-as-configurações)
-6. [Passo 2: Gerenciando a Sessão Spark](#passo-2-gerenciando-a-sessão-spark)
-7. [Passo 3: Unificando a Leitura e Escrita de Dados (I/O)](#passo-3-unificando-a-leitura-e-escrita-de-dados-io)
-8. [Passo 4: Isolando a Lógica de Negócio](#passo-4-isolando-a-lógica-de-negócio)
-9. [Passo 5: Orquestrando a Aplicação no `main.py`](#passo-5-orquestrando-a-aplicação-no-mainpy)
-10. [Passo 6: Aplicando Injeção de Dependências com uma Classe `Pipeline`](#passo-6-aplicando-injeção-de-dependências-com-uma-classe-pipeline)
-11. [Passo 7: Adicionando Logging e Tratamento de Erros](#passo-7-adicionando-logging-e-tratamento-de-erros)
-12. [Passo 8: Gerenciando Dependências com `requirements.txt`](#passo-8-gerenciando-dependências-com-requirementstxt)
-13. [Passo 9: Garantindo a Qualidade do Código com Linter e Formatador](#passo-9-garantindo-a-qualidade-do-código-com-linter-e-formatador)
-14. [Passo 10: Empacotando a Aplicação para Distribuição](#passo-10-empacotando-a-aplicação-para-distribuição)
-15. [Passo 11: Garantido a qualidade com testes](#passo-11-garantindo-a-qualidade-com-testes)
+5. [Passo 2: Centralizando as Configurações](#passo-2-centralizando-as-configurações)
+6. [Passo 3: Gerenciando a Sessão Spark](#passo-3-gerenciando-a-sessão-spark)
+7. [Passo 4: Unificando a Leitura e Escrita de Dados (I/O)](#passo-4-unificando-a-leitura-e-escrita-de-dados-io)
+8. [Passo 5: Isolando a Lógica de Negócio](#passo-5-isolando-a-lógica-de-negócio)
+9. [Passo 6: Orquestrando a Aplicação no `main.py`](#passo-6-orquestrando-a-aplicação-no-mainpy)
+10. [Passo 7: Aplicando Injeção de Dependências com uma Classe `Pipeline`](#passo-7-aplicando-injeção-de-dependências-com-uma-classe-pipeline)
+11. [Passo 8: Adicionando Logging e Tratamento de Erros](#passo-8-adicionando-logging-e-tratamento-de-erros)
+12. [Passo 9: Gerenciando Dependências com `requirements.txt`](#passo-9-gerenciando-dependências-com-requirementstxt)
+13. [Passo 10: Garantindo a Qualidade do Código com Linter e Formatador](#passo-10-garantindo-a-qualidade-do-código-com-linter-e-formatador)
+14. [Passo 11: Empacotando a Aplicação para Distribuição](#passo-11-empacotando-a-aplicação-para-distribuição)
+15. [Passo 12: Garantido a qualidade com testes](#passo-12-garantindo-a-qualidade-com-testes)
 
 ---
 
@@ -32,7 +32,7 @@ ATENÇÃO! Se estiver utilizando Cloud9, utilize esse [tutorial](https://github.
 
 1. **Instale o Java 17:**
     ```bash
-    sudo apt upgrade -y && sudo apt update -y
+    sudo apt update -y && sudo apt upgrade -y
 
     ```
 
@@ -197,18 +197,12 @@ A solução é **sempre** definir o schema explicitamente.
 
 Vamos simular um problema comum. Imagine que temos um arquivo CSV simples em `data/input/codigos.csv` com códigos de produtos. Note que alguns códigos possuem zeros à esquerda, que são importantes.
 
-**1. Crie o arquivo `data.csv`:**
+**1. Crie o arquivo `/tmp/data.csv`:**
 ```bash
-touch data/input/data.csv
-
-```
-
-Inclua o conteúdo a seguir em `data.csv`:
-```csv
-id,nome,cargo,salario,cod_bonus
+echo 'id,nome,cargo,salario,cod_bonus
 1,"João Silva",Analista,5000.0,0101
 2,"Maria Santos",Gerente,12000.0,0202
-3,"Carlos Oliveira",Diretor,40000.0,101
+3,"Carlos Oliveira",Diretor,40000.0,101' > /tmp/data.csv
 
 ```
 
@@ -237,7 +231,7 @@ print("--- 1. Lendo com inferSchema (Abordagem Perigosa) ---")
 # Ele verá '0101' (string) e 101 (int) na mesma coluna e pode decidir
 # converter tudo para inteiro, pois é o tipo mais "comum" ou que se encaixa.
 
-df = spark.read.option("inferSchema", "true").csv("data/input/data.csv", header=True)
+df = spark.read.option("inferSchema", "true").csv("/tmp/data.csv", header=True)
 
 print("Schema inferido pelo Spark:")
 df.printSchema()
@@ -308,7 +302,7 @@ schema = StructType([
 ])
 
 # Criando o DataFrame com o schema seguro
-df = spark.read.option("header", "true").schema(schema).csv("data.csv")
+df = spark.read.option("header", "true").schema(schema).csv("/tmp/data.csv")
 
 print("Schema definido manualmente:")
 df.printSchema()
