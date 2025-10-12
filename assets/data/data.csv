@@ -1,0 +1,4 @@
+id,nome,cargo,salario,cod_bonus
+1,"João Silva",Analista,5000.0,0101
+2,"Maria Santos",Gerente,12000.0,0202
+3,"Carlos Oliveira",Diretor,40000.0,101
