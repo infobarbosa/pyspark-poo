@@ -197,23 +197,20 @@ A solução é **sempre** definir o schema explicitamente.
 
 Vamos simular um problema comum. Imagine que temos um arquivo CSV simples em `data/input/codigos.csv` com códigos de produtos. Note que alguns códigos possuem zeros à esquerda, que são importantes.
 
-**1. Crie o arquivo `/tmp/data.csv`:**
-```bash
-echo 'id,nome,cargo,salario,cod_bonus
-1,"João Silva",Analista,5000.0,0101
-2,"Maria Santos",Gerente,12000.0,0202
-3,"Carlos Oliveira",Diretor,40000.0,101' > /tmp/data.csv
+1. Baixe o arquivo `/tmp/data.csv`:
+  ```bash
+  wget -P /tmp https://raw.githubusercontent.com/infobarbosa/pyspark-poo/main/assets/data/data.csv
 
-```
+  ```
 
-**2. Crie o script `infer-schema-1.py`:**
+2. Baixe o script `infer-schema.py`:
 
-```bash
-touch src/infer-schema-1.py
+  ```bash
+  wget -P /tmp https://raw.githubusercontent.com/infobarbosa/pyspark-poo/main/assets/scripts/infer-schema.py
 
-```
+  ```
 
-Adicione o seguinte conteúdo ao script `infer-schema-1.py`:
+O script `infer-schema.py` tem o seguinte conteúdo:
 ```python
 from pyspark.sql import SparkSession
 from pyspark.sql.types import StructType, StructField, StringType, DoubleType, IntegerType
@@ -263,19 +260,22 @@ spark.stop()
 
 ```
 
-**3. Execute e veja o erro:**
+3. Execute e veja o erro:
 ```bash
-spark-submit infer-schema-1.py
+spark-submit /tmp/infer-schema.py
 
 ```
 
 ### Exemplo 2 (corrigido):
-```bash
-touch src/infer-schema-2.py
 
-```
+1. Baixe o script `schema-definido.py`:
 
-Adicione o seguinte conteúdo ao script `infer-schema-2.py`:
+  ```bash
+  wget -P /tmp https://raw.githubusercontent.com/infobarbosa/pyspark-poo/main/assets/scripts/schema-definido.py
+
+  ```
+
+O script `schema-definido.py` tem o seguinte conteúdo:
 
 ```python
 from pyspark.sql import SparkSession
@@ -328,24 +328,11 @@ spark.stop()
 
 ```
 
-**3. Execute:**
+2. Execute:
 ```bash
-spark-submit infer-schema-2.py
+spark-submit /tmp/schema-definido.py
 
 ```
-
-
-### Exemplo 3 (precisão decimal)
-```bash
-touch src/infer-schema-3.py
-
-```
-
-Adicione o seguinte conteúdo ao script `infer-schema-3.py`:
-```python
-
-```
-
 
 ---
 ### Definindo os schemas do projeto
