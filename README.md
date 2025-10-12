@@ -598,21 +598,21 @@ def carregar_config(path: str = "config/settings.yaml") -> dict:
 
 A criação da `SparkSession` também pode ser isolada para ser mais reutilizável e fácil de configurar.
 
-**1. Crie o diretório e o arquivo de inicialização:**
+1. Crie o diretório e o arquivo de inicialização:
 
-```bash
-mkdir -p src/session
-touch src/session/__init__.py
+  ```bash
+  mkdir -p src/session
+  touch src/session/__init__.py
 
-```
+  ```
 
-**2. Crie o arquivo `src/session/spark_session.py`:**
-```bash
-touch src/session/spark_session.py
+2. Crie o arquivo `src/session/spark_session.py`:
+  ```bash
+  touch src/session/spark_session.py
 
-```
+  ```
 
-**3. Adicione o seguinte código a ele:**
+3. Adicione o seguinte código a ele:
 
 Esta classe simples será responsável por fornecer uma sessão Spark configurada para nossa aplicação.
 
@@ -639,7 +639,7 @@ class SparkSessionManager:
 
 ```
 
-**4. Faça os ajustes em `src/main.py`**
+4. Faça os ajustes em `src/main.py`
 - Importando o pacote
   ```python
   from session.spark_session import SparkSessionManager
@@ -651,86 +651,92 @@ class SparkSessionManager:
   ```
 ---
 
-### Passo 3: Unificando a Leitura e Escrita de Dados (I/O)
+## Passo 4: Unificando a Leitura e Escrita de Dados (I/O)
 
 Vamos criar uma classe que lida com todas as operações de entrada (leitura) e saída (escrita) de dados.
 
-**1. Crie o diretório e o arquivo de inicialização:**
+1. Crie o diretório e o arquivo de inicialização:
 
 ```bash
 mkdir -p src/io_utils
-touch src/io_utils/__init__.py
+
 ```
 
-**2. Crie o arquivo `src/io_utils/data_handler.py`:**
+```bash
+touch src/io_utils/__init__.py
+
+```
+
+2. Crie o arquivo `src/io_utils/data_handler.py`:
 ```bash
 touch src/io_utils/data_handler.py
+
 ```
 
-**3. Adicione o seguinte código a ele:**
+3. Adicione o seguinte código a ele:
 
 Esta classe irá conter a lógica para ler os arquivos de clientes e pedidos, e também um novo método para escrever nosso resultado final em formato Parquet.
 
-```python
-# src/io_utils/data_handler.py
-from pyspark.sql import SparkSession, DataFrame
-from pyspark.sql.types import (StructType, StructField, StringType, LongType,
-                               ArrayType, DateType, FloatType, TimestampType)
+  ```python
+  # src/io_utils/data_handler.py
+  from pyspark.sql import SparkSession, DataFrame
+  from pyspark.sql.types import (StructType, StructField, StringType, LongType,
+                                ArrayType, DateType, FloatType, TimestampType)
 
-class DataHandler:
-    """
-    Classe responsável pela leitura (input) e escrita (output) de dados.
-    """
+  class DataHandler:
+      """
+      Classe responsável pela leitura (input) e escrita (output) de dados.
+      """
 
-    def __init__(self, spark: SparkSession):
-        self.spark = spark
+      def __init__(self, spark: SparkSession):
+          self.spark = spark
 
-    def _get_schema_clientes(self) -> StructType:
-        """Define e retorna o schema para o dataframe de clientes."""
-        return StructType([
-            StructField("id", LongType(), True),
-            StructField("nome", StringType(), True),
-            StructField("data_nasc", DateType(), True),
-            StructField("cpf", StringType(), True),
-            StructField("email", StringType(), True),
-            StructField("interesses", ArrayType(StringType()), True)
-        ])
+      def _get_schema_clientes(self) -> StructType:
+          """Define e retorna o schema para o dataframe de clientes."""
+          return StructType([
+              StructField("id", LongType(), True),
+              StructField("nome", StringType(), True),
+              StructField("data_nasc", DateType(), True),
+              StructField("cpf", StringType(), True),
+              StructField("email", StringType(), True),
+              StructField("interesses", ArrayType(StringType()), True)
+          ])
 
-    def _get_schema_pedidos(self) -> StructType:
-        """Define e retorna o schema para o dataframe de pedidos."""
-        return StructType([
-            StructField("id_pedido", StringType(), True),
-            StructField("produto", StringType(), True),
-            StructField("valor_unitario", FloatType(), True),
-            StructField("quantidade", LongType(), True),
-            StructField("data_criacao", TimestampType(), True),
-            StructField("uf", StringType(), True),
-            StructField("id_cliente", LongType(), True)
-        ])
+      def _get_schema_pedidos(self) -> StructType:
+          """Define e retorna o schema para o dataframe de pedidos."""
+          return StructType([
+              StructField("id_pedido", StringType(), True),
+              StructField("produto", StringType(), True),
+              StructField("valor_unitario", FloatType(), True),
+              StructField("quantidade", LongType(), True),
+              StructField("data_criacao", TimestampType(), True),
+              StructField("uf", StringType(), True),
+              StructField("id_cliente", LongType(), True)
+          ])
 
-    def load_clientes(self, path: str) -> DataFrame:
-        """Carrega o dataframe de clientes a partir de um arquivo JSON."""
-        schema = self._get_schema_clientes()
-        return self.spark.read.option("compression", "gzip").json(path, schema=schema)
+      def load_clientes(self, path: str) -> DataFrame:
+          """Carrega o dataframe de clientes a partir de um arquivo JSON."""
+          schema = self._get_schema_clientes()
+          return self.spark.read.option("compression", "gzip").json(path, schema=schema)
 
-    def load_pedidos(self, path: str) -> DataFrame:
-        """Carrega o dataframe de pedidos a partir de um arquivo CSV."""
-        schema = self._get_schema_pedidos()
-        return self.spark.read.option("compression", "gzip").csv(path, header=True, schema=schema, sep=";")
+      def load_pedidos(self, path: str) -> DataFrame:
+          """Carrega o dataframe de pedidos a partir de um arquivo CSV."""
+          schema = self._get_schema_pedidos()
+          return self.spark.read.option("compression", "gzip").csv(path, header=True, schema=schema, sep=";")
 
-    def write_parquet(self, df: DataFrame, path: str):
-        """
-        Salva o DataFrame em formato Parquet, sobrescrevendo se já existir.
+      def write_parquet(self, df: DataFrame, path: str):
+          """
+          Salva o DataFrame em formato Parquet, sobrescrevendo se já existir.
 
-        :param df: DataFrame a ser salvo.
-        :param path: Caminho de destino.
-        """
-        df.write.mode("overwrite").parquet(path)
-        print(f"Dados salvos com sucesso em: {path}")
+          :param df: DataFrame a ser salvo.
+          :param path: Caminho de destino.
+          """
+          df.write.mode("overwrite").parquet(path)
+          print(f"Dados salvos com sucesso em: {path}")
 
-```
+  ```
 
-**4. Faça os ajustes em `main.py`:**
+4. Faça os ajustes em `main.py`:
 
 - Importar DataHandler do pacote io_utils.data_handler:
   ```python
@@ -758,54 +764,61 @@ class DataHandler:
 
 ---
 
-### Passo 4: Isolando a Lógica de Negócio
+## Passo 5: Isolando a Lógica de Negócio
 
 Esta etapa é semelhante à anterior, mas vamos garantir que o arquivo esteja no lugar certo.
 
-**1. Crie o diretório e o arquivo de inicialização:**
+1. Crie o diretório e o arquivo de inicialização:
 
-```bash
-mkdir -p src/processing
-touch src/processing/__init__.py
-```
+  ```bash
+  mkdir -p src/processing
 
-**2. Crie o arquivo `src/processing/transformations.py`:**
-```bash
-touch src/processing/transformations.py
-```
+  ```
 
-**3. Adicione o seguinte código a ele:**
+  ```bash
+  touch src/processing/__init__.py
+
+  ```
+
+2. Crie o arquivo `src/processing/transformations.py`:
+  ```bash
+  touch src/processing/transformations.py
+
+  ```
+
+3. Adicione o seguinte código a ele:
 
 Esta classe contém as regras de negócio puras, que transformam um DataFrame de entrada em um DataFrame de saída.
 
-```python
-# src/processing/transformations.py
-from pyspark.sql import DataFrame
-from pyspark.sql import functions as F
+  ```python
+  # src/processing/transformations.py
+  from pyspark.sql import DataFrame
+  from pyspark.sql import functions as F
 
-class Transformation:
-    """
-    Classe que contém as transformações e regras de negócio da aplicação.
-    """
+  class Transformation:
+      """
+      Classe que contém as transformações e regras de negócio da aplicação.
+      """
 
-    def add_valor_total_pedidos(self, pedidos_df: DataFrame) -> DataFrame:
-        """Adiciona a coluna 'valor_total' (valor_unitario * quantidade) ao DataFrame de pedidos."""
-        return pedidos_df.withColumn("valor_total", F.col("valor_unitario") * F.col("quantidade"))
+      def add_valor_total_pedidos(self, pedidos_df: DataFrame) -> DataFrame:
+          """Adiciona a coluna 'valor_total' (valor_unitario * quantidade) ao DataFrame de pedidos."""
+          return pedidos_df.withColumn("valor_total", F.col("valor_unitario") * F.col("quantidade"))
 
-    def get_top_10_clientes(self, pedidos_df: DataFrame) -> DataFrame:
-        """Calcula o valor total de pedidos por cliente e retorna os 10 maiores."""
-        return pedidos_df.groupBy("id_cliente") \
-            .agg(F.sum("valor_total").alias("valor_total")) \
-            .orderBy(F.desc("valor_total")) \
-            .limit(10)
+      def get_top_10_clientes(self, pedidos_df: DataFrame) -> DataFrame:
+          """Calcula o valor total de pedidos por cliente e retorna os 10 maiores."""
+          return pedidos_df.groupBy("id_cliente") \
+              .agg(F.sum("valor_total").alias("valor_total")) \
+              .orderBy(F.desc("valor_total")) \
+              .limit(10)
 
-    def join_pedidos_clientes(self, pedidos_df: DataFrame, clientes_df: DataFrame) -> DataFrame:
-        """Faz a junção entre os DataFrames de pedidos e clientes."""
-        return pedidos_df.join(clientes_df, clientes_df.id == pedidos_df.id_cliente, "inner") \
-            .select(pedidos_df.id_cliente, clientes_df.nome, clientes_df.email, pedidos_df.valor_total)
-```
+      def join_pedidos_clientes(self, pedidos_df: DataFrame, clientes_df: DataFrame) -> DataFrame:
+          """Faz a junção entre os DataFrames de pedidos e clientes."""
+          return pedidos_df.join(clientes_df, clientes_df.id == pedidos_df.id_cliente, "inner") \
+              .select(pedidos_df.id_cliente, clientes_df.nome, clientes_df.email, pedidos_df.valor_total)
 
-**4. Faça os seguintes ajustes em `main.py` :**
+  ```
+
+4. Faça os seguintes ajustes em `main.py` :
   - Importe o pacote processing.transformations
     ```python
     from processing.transformations import Transformation
@@ -839,64 +852,65 @@ class Transformation:
   
 ---
 
-### Passo 5: Orquestrando a Aplicação no `main.py`
+## Passo 6: Orquestrando a Aplicação no `main.py`
 
 Agora, vamos juntar todas as peças. O `main.py` se tornará um orquestrador limpo e legível, que apenas chama os métodos das nossas classes.
 
-**1. Substitua todo o conteúdo do `src/main.py` pelo código abaixo:**
+1. Substitua todo o conteúdo do `src/main.py` pelo código abaixo:
 
-```python
-# src/main.py
-from session.spark_session import SparkSessionManager
-from io_utils.data_handler import DataHandler
-from processing.transformations import Transformation
-import config.settings as settings
+  ```python
+  # src/main.py
+  from session.spark_session import SparkSessionManager
+  from io_utils.data_handler import DataHandler
+  from processing.transformations import Transformation
+  import config.settings as settings
 
-def main():
-    """
-    Função principal que orquestra a execução do pipeline de dados.
-    """
-    # 1. Inicialização
-    spark = SparkSessionManager.get_spark_session("Análise de Pedidos com POO")
-    data_handler = DataHandler(spark)
-    transformer = Transformation()
+  def main():
+      """
+      Função principal que orquestra a execução do pipeline de dados.
+      """
+      # 1. Inicialização
+      spark = SparkSessionManager.get_spark_session("Análise de Pedidos com POO")
+      data_handler = DataHandler(spark)
+      transformer = Transformation()
 
-    print("Pipeline iniciado...")
+      print("Pipeline iniciado...")
 
-    # 2. Carga de Dados (Input)
-    print("Carregando dados de clientes e pedidos...")
-    clientes_df = data_handler.load_clientes(settings.CLIENTES_PATH)
-    pedidos_df = data_handler.load_pedidos(settings.PEDIDOS_PATH)
+      # 2. Carga de Dados (Input)
+      print("Carregando dados de clientes e pedidos...")
+      clientes_df = data_handler.load_clientes(settings.CLIENTES_PATH)
+      pedidos_df = data_handler.load_pedidos(settings.PEDIDOS_PATH)
 
-    # 3. Transformações (Processing)
-    print("Aplicando transformações...")
-    pedidos_com_valor_total_df = transformer.add_valor_total_pedidos(pedidos_df)
-    top_10_clientes_df = transformer.get_top_10_clientes(pedidos_com_valor_total_df)
-    resultado_final_df = transformer.join_pedidos_clientes(top_10_clientes_df, clientes_df)
+      # 3. Transformações (Processing)
+      print("Aplicando transformações...")
+      pedidos_com_valor_total_df = transformer.add_valor_total_pedidos(pedidos_df)
+      top_10_clientes_df = transformer.get_top_10_clientes(pedidos_com_valor_total_df)
+      resultado_final_df = transformer.join_pedidos_clientes(top_10_clientes_df, clientes_df)
 
-    # 4. Exibição e Salvamento (Output)
-    print("Top 10 clientes com maior valor total de pedidos:")
-    resultado_final_df.show(10, truncate=False)
+      # 4. Exibição e Salvamento (Output)
+      print("Top 10 clientes com maior valor total de pedidos:")
+      resultado_final_df.show(10, truncate=False)
 
-    print("Salvando resultado em formato Parquet...")
-    data_handler.write_parquet(resultado_final_df, settings.OUTPUT_PATH)
+      print("Salvando resultado em formato Parquet...")
+      data_handler.write_parquet(resultado_final_df, settings.OUTPUT_PATH)
 
-    # 5. Finalização
-    spark.stop()
-    print("Pipeline concluído com sucesso!")
+      # 5. Finalização
+      spark.stop()
+      print("Pipeline concluído com sucesso!")
 
 
-if __name__ == "__main__":
-    main()
-```
+  if __name__ == "__main__":
+      main()
 
-Faça o teste:
-```bash
-spark-submit src/main.py
+  ```
 
-```
+2. Faça o teste:
+  ```bash
+  spark-submit src/main.py
 
-#### O que ganhamos com esta nova estrutura?
+  ```
+
+## O que ganhamos com esta nova estrutura?
 
 -   **Organização Superior:** Cada parte da aplicação tem seu lugar. Se precisar alterar algo sobre a sessão Spark, você sabe que deve ir em `src/session`. Se a forma de ler um arquivo mudar, o lugar é `src/io_utils`.
 -   **Configuração Centralizada:** Mudar os caminhos dos arquivos de entrada ou saída agora é trivial e seguro, sem risco de quebrar a lógica da aplicação.
@@ -905,7 +919,7 @@ spark-submit src/main.py
 
 ---
 
-### Passo 6: Aplicando Injeção de Dependências com uma Classe `Pipeline`
+## Passo 7: Injeção de Dependências
 
 Até agora, nossa função `main` está fazendo duas coisas: criando os objetos (`DataHandler`, `Transformation`) e orquestrando as chamadas dos métodos. Vamos dar um passo adiante na organização do código usando um padrão chamado **Injeção de Dependências (DI)**.
 
@@ -913,116 +927,121 @@ A ideia é simples: em vez de uma classe ou função criar os objetos de que pre
 
 Vamos criar uma classe `Pipeline` que conterá toda a lógica de orquestração. O `main.py` se tornará a **"Raiz de Composição"** (`Composition Root`), o único lugar responsável por montar e "ligar" os componentes da nossa aplicação.
 
-**1. Crie o arquivo `src/pipeline/pipeline.py`:**
+1. Crie o arquivo `src/pipeline/pipeline.py`:
 
 Este arquivo irá abrigar nossa nova classe orquestradora.
 
-```bash
-mkdir -p src/pipeline
-touch src/pipeline/__init__.py
+  ```bash
+  mkdir -p src/pipeline
+  ```
 
-```
+  ```bash
+  touch src/pipeline/__init__.py
 
-```bash
-touch src/pipeline/pipeline.py
+  ```
 
-```
+  ```bash
+  touch src/pipeline/pipeline.py
 
-**2. Adicione o seguinte código ao `src/pipeline/pipeline.py`:**
+  ```
+
+2. Adicione o seguinte código ao `src/pipeline/pipeline.py`:
 
 A classe `Pipeline` receberá a sessão Spark como uma dependência em seu construtor. Ela então usará essa sessão para inicializar seus próprios componentes, como o `DataHandler`.
 
-```python
-# src/pipeline/pipeline.py
-from pyspark.sql import SparkSession
-from io_utils.data_handler import DataHandler
-from processing.transformations import Transformation
-import config.settings as settings
+  ```python
+  # src/pipeline/pipeline.py
+  from pyspark.sql import SparkSession
+  from io_utils.data_handler import DataHandler
+  from processing.transformations import Transformation
+  import config.settings as settings
 
-class Pipeline:
-    """
-    Encapsula a lógica de execução do pipeline de dados.
-    As dependências são injetadas para facilitar os testes e a manutenção.
-    """
-    def __init__(self, spark: SparkSession):
-        self.spark = spark
-        self.data_handler = DataHandler(self.spark)
-        self.transformer = Transformation()
+  class Pipeline:
+      """
+      Encapsula a lógica de execução do pipeline de dados.
+      As dependências são injetadas para facilitar os testes e a manutenção.
+      """
+      def __init__(self, spark: SparkSession):
+          self.spark = spark
+          self.data_handler = DataHandler(self.spark)
+          self.transformer = Transformation()
 
-    def run(self):
-        """
-        Executa o pipeline completo: carga, transformação, e salvamento.
-        """
-        print("Pipeline iniciado...")
+      def run(self):
+          """
+          Executa o pipeline completo: carga, transformação, e salvamento.
+          """
+          print("Pipeline iniciado...")
 
-        # Carga de Dados
-        print("Carregando dados de clientes e pedidos...")
-        clientes_df = self.data_handler.load_clientes(settings.CLIENTES_PATH)
-        pedidos_df = self.data_handler.load_pedidos(settings.PEDIDOS_PATH)
+          # Carga de Dados
+          print("Carregando dados de clientes e pedidos...")
+          clientes_df = self.data_handler.load_clientes(settings.CLIENTES_PATH)
+          pedidos_df = self.data_handler.load_pedidos(settings.PEDIDOS_PATH)
 
-        # Transformações
-        print("Aplicando transformações...")
-        pedidos_com_valor_total_df = self.transformer.add_valor_total_pedidos(pedidos_df)
-        top_10_clientes_df = self.transformer.get_top_10_clientes(pedidos_com_valor_total_df)
-        resultado_final_df = self.transformer.join_pedidos_clientes(top_10_clientes_df, clientes_df)
+          # Transformações
+          print("Aplicando transformações...")
+          pedidos_com_valor_total_df = self.transformer.add_valor_total_pedidos(pedidos_df)
+          top_10_clientes_df = self.transformer.get_top_10_clientes(pedidos_com_valor_total_df)
+          resultado_final_df = self.transformer.join_pedidos_clientes(top_10_clientes_df, clientes_df)
 
-        # Exibição e Salvamento
-        print("Top 10 clientes com maior valor total de pedidos:")
-        resultado_final_df.show(10, truncate=False)
+          # Exibição e Salvamento
+          print("Top 10 clientes com maior valor total de pedidos:")
+          resultado_final_df.show(10, truncate=False)
 
-        print("Salvando resultado em formato Parquet...")
-        self.data_handler.write_parquet(resultado_final_df, settings.OUTPUT_PATH)
+          print("Salvando resultado em formato Parquet...")
+          self.data_handler.write_parquet(resultado_final_df, settings.OUTPUT_PATH)
 
-        print("Pipeline concluído com sucesso!")
-```
+          print("Pipeline concluído com sucesso!")
+  ```
 
-**3. Refatore o `src/main.py` para ser a Raiz de Composição:**
+3. Refatore o `src/main.py` para ser a Raiz de Composição:
 
 Agora, o `main.py` fica muito mais limpo. Sua única responsabilidade é inicializar os objetos e iniciar o processo.
 
 Substitua todo o conteúdo do `src/main.py` por este código:
 
-```python
-# src/main.py
-from session.spark_session import SparkSessionManager
-from pipeline.pipeline import Pipeline
+  ```python
+  # src/main.py
+  from session.spark_session import SparkSessionManager
+  from pipeline.pipeline import Pipeline
 
-def main():
-    """
-    Função principal que atua como a "Raiz de Composição".
-    Configura e executa o pipeline.
-    """
-    # 1. Inicialização da sessão Spark
-    spark = SparkSessionManager.get_spark_session("Análise de Pedidos com DI")
-    
-    # 2. Injeção de Dependência e Execução
-    # A sessão Spark é "injetada" na criação do pipeline
-    pipeline = Pipeline(spark)
-    pipeline.run()
+  def main():
+      """
+      Função principal que atua como a "Raiz de Composição".
+      Configura e executa o pipeline.
+      """
+      # 1. Inicialização da sessão Spark
+      spark = SparkSessionManager.get_spark_session("Análise de Pedidos com DI")
+      
+      # 2. Injeção de Dependência e Execução
+      # A sessão Spark é "injetada" na criação do pipeline
+      pipeline = Pipeline(spark)
+      pipeline.run()
 
-    # 3. Finalização
-    spark.stop()
+      # 3. Finalização
+      spark.stop()
 
-if __name__ == "__main__":
-    main()
-```
+  if __name__ == "__main__":
+      main()
 
-**4. Garanta que o diretório `src` seja um pacote Python:**
+  ```
+
+4. Garanta que o diretório `src` seja um pacote Python:
 
 Para que os imports como `from pipeline.pipeline import Pipeline` funcionem corretamente, o Python precisa tratar o diretório `src` como um "pacote". Para isso, crie um arquivo `__init__.py` vazio dentro dele.
 
-```bash
-touch src/__init__.py
+  ```bash
+  touch src/__init__.py
 
-```
+  ```
 
-**5. Faça o teste:**
-```bash
-spark-submit src/main.py
+5. Faça o teste:
 
-```
+  ```bash
+  spark-submit src/main.py
 
-#### O Grande Ganho: Testabilidade
+  ```
+
+### O Grande Ganho: Testabilidade
 
 Por que fizemos tudo isso? **Para facilitar os testes.**
 
@@ -1032,7 +1051,7 @@ Este design nos prepara para o próximo nível de maturidade de software: **test
 
 ---
 
-### Passo 7: Adicionando Logging e Tratamento de Erros
+## Passo 8: Logging
 
 Uma aplicação robusta não usa `print()` para registrar seu progresso e não quebra sem dar informações claras. Vamos substituir nossos `prints` por um sistema de **logging** profissional e adicionar um **tratamento de erros** para tornar nosso pipeline mais resiliente.
 
@@ -1053,7 +1072,7 @@ import logging
 logger = logging.getLogger(__name__)
 ```
 
-**1. Configure o Logging**
+1. Configure o Logging
 
   - Em `src/main.py`, adicione as linhas abaixo:
     ```python
@@ -1119,7 +1138,11 @@ logger = logging.getLogger(__name__)
             logger.info("Pipeline concluído com sucesso!")
     ```
 
-**2. Tratamento de erros em `data_handler.py`:**
+## 9: Tratamento de Erros
+Ao trabalhar com processamento de dados em grande escala, é inevitável que nos deparemos com imprevistos, como dados ausentes ou malformados, falhas de conexão com fontes de dados ou erros de lógica em nossas transformações.
+Ignorar essas possíveis falhas pode levar à interrupção de pipelines, resultados incorretos e perda de tempo valioso.
+
+1. Tratamento de erros em `data_handler.py`:
 
 O `DataHandler` pode gerar erros durante a leitura de arquivos. Vamos adicionar um bloco `try...except`**
   - Importando o pacote
@@ -1157,7 +1180,7 @@ O `DataHandler` pode gerar erros durante a leitura de arquivos. Vamos adicionar 
             raise Exception(f"Erro ao carregar pedidos: {e}")
     ```
 
-**3. Tratamento de erros em `pipeline.py`:**
+2. Tratamento de erros em `pipeline.py`:
   - Substitua o trecho `pedidos_df = self.data_handler...` por:
     ```python
     try:
@@ -1168,56 +1191,56 @@ O `DataHandler` pode gerar erros durante a leitura de arquivos. Vamos adicionar 
 
     ```
 
-**4. Tratamento de Erros em `main.py`:**
+3. Tratamento de Erros em `main.py`:
 
 O ponto de entrada da nossa aplicação (`main.py`) é o lugar ideal para capturar qualquer erro que possa ocorrer durante a execução do pipeline. Vamos envolver a chamada `pipeline.run()` em um bloco `try...except`.
 
 Atualize o `src/main.py` com o seguinte código:
 
-```python
-# src/main.py
-import logging
-from session.spark_session import SparkSessionManager
-from pipeline import Pipeline
+  ```python
+  # src/main.py
+  import logging
+  from session.spark_session import SparkSessionManager
+  from pipeline import Pipeline
 
-def configurar_logging():
-  """Configura o logging para todo o projeto."""
-  logging.basicConfig(
-      level=logging.INFO,
-      format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-      datefmt='%Y-%m-%d %H:%M:%S',
+  def configurar_logging():
+    """Configura o logging para todo o projeto."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
 
-      handlers=[
-          logging.FileHandler("dataeng-pyspark-poo.log"),
-          logging.StreamHandler()
-      ]
-  )
-  logging.info("Logging configurado.")
+        handlers=[
+            logging.FileHandler("dataeng-pyspark-poo.log"),
+            logging.StreamHandler()
+        ]
+    )
+    logging.info("Logging configurado.")
 
-def main():
-    """
-    Função principal que configura e executa o pipeline,
-    com tratamento de erros.
-    """
-    spark = None  # Inicializa a variável spark
-    try:
-        spark = SparkSessionManager.get_spark_session("Análise de Pedidos com DI e Logging")
-        
-        pipeline = Pipeline(spark)
-        pipeline.run()
+  def main():
+      """
+      Função principal que configura e executa o pipeline,
+      com tratamento de erros.
+      """
+      spark = None  # Inicializa a variável spark
+      try:
+          spark = SparkSessionManager.get_spark_session("Análise de Pedidos com DI e Logging")
+          
+          pipeline = Pipeline(spark)
+          pipeline.run()
 
-    except Exception as e:
-        logging.error(f"Ocorreu um erro inesperado na execução do programa: {e}")
-    finally:
-        if spark:
-            spark.stop()
-            logging.info("Sessão Spark finalizada.")
+      except Exception as e:
+          logging.error(f"Ocorreu um erro inesperado na execução do programa: {e}")
+      finally:
+          if spark:
+              spark.stop()
+              logging.info("Sessão Spark finalizada.")
 
-if __name__ == "__main__":
-    main()
-```
+  if __name__ == "__main__":
+      main()
+  ```
 
-**5. Testando:**
+4. Testando:
   - Execute o comando a seguir no terminal:
     ```bash
     mv data/input/pedidos.gz data/input/pedidos.gz.backup
@@ -1239,69 +1262,72 @@ if __name__ == "__main__":
     ```
 
 
-**6. Conclusão:**
+#### Conclusão
 
 Com essas mudanças, se um arquivo não for encontrado, a aplicação não vai mais quebrar com um stack trace gigante. Em vez disso, ela registrará uma mensagem de erro clara e finalizará a sessão Spark de forma segura.
 
 ---
 
-### Passo 8: Gerenciando Dependências com `requirements.txt`
+## Passo 10: Gestão de Dependências
 
 Para garantir que nossa aplicação funcione da mesma forma em qualquer máquina, precisamos fixar as versões das bibliotecas que usamos.
 
-**1. Crie o arquivo `requirements.txt`:**
+1. Crie o arquivo `requirements.txt`:
 
 Na raiz do seu projeto, crie um arquivo chamado `requirements.txt`.
 
-```bash
-touch requirements.txt
+  ```bash
+  touch requirements.txt
 
-```
+  ```
 
-**2. Adicione a dependência do PySpark:**
+2. Adicione a dependência do PySpark:
 
 Abra o `requirements.txt` e adicione a versão exata do PySpark que você está usando. Você pode descobrir a versão com o comando `pip show pyspark`.
 
-```
-# requirements.txt
-pyspark==4.0.0
-```
+  ```
+  # requirements.txt
+  pyspark==4.0.0
+
+  ```
+  
 *(Nota: use a versão que estiver instalada no seu ambiente)*
 
-**3. Atualize as instruções de instalação:**
+3. Atualize as instruções de instalação:
 
 A partir de agora, a forma correta de instalar as dependências do projeto é:
 
-```bash
-pip install -r requirements.txt
+  ```bash
+  pip install -r requirements.txt
 
-```
+  ```
 Isso garante que qualquer pessoa que execute seu projeto usará exatamente a mesma versão do PySpark.
 
 ---
 
-### Passo 9: Garantindo a Qualidade do Código com Linter e Formatador
+## Passo 11: Qualidade do Código com Linter e Formatador
 
 Para manter nosso código limpo, legível e livre de erros comuns, vamos usar duas ferramentas padrão da indústria: `ruff` (linter) e `black` (formatador).
 
-**1. Adicione as ferramentas ao `requirements.txt`:**
+1. Adicione as ferramentas ao `requirements.txt`:
 
-```
-# requirements.txt
-pyspark==4.0.0
-ruff==0.12.9
-black==25.1.0
-```
+  ```
+  # requirements.txt
+  pyspark==4.0.0
+  ruff==0.12.9
+  black==25.1.0
+  ```
+
 *(Nota: você pode usar versões mais recentes se desejar)*
 
-**2. Instale as novas dependências:**
+2. Instale as novas dependências:
 
-```bash
-pip install -r requirements.txt
+  ```bash
+  pip install -r requirements.txt
 
-```
+  ```
 
-**3. Como usar as ferramentas:**
+3. Como usar as ferramentas:
 
 -   **Para verificar a qualidade do código (Linting):**
     Execute o `ruff` na raiz do projeto. Ele apontará problemas de estilo, bugs potenciais e código não utilizado.
@@ -1321,7 +1347,7 @@ Adotar essas ferramentas torna o código mais profissional e fácil de manter, e
 
 ---
 
-### Passo 10: Empacotando a Aplicação para Distribuição
+## Passo 12: Empacotamento da Aplicação para Distribuição
 
 O passo final da jornada de um engenheiro de software é tornar sua aplicação distribuível. Em vez de pedir para alguém clonar seu repositório e executar um script, vamos empacotar nosso pipeline em um formato que pode ser instalado com `pip` e executado com um simples comando no terminal.
 
@@ -1329,56 +1355,56 @@ O passo final da jornada de um engenheiro de software é tornar sua aplicação 
 
 Este é o arquivo de configuração padrão para projetos Python modernos. Crie-o na raiz do seu projeto.
 
-```bash
-touch pyproject.toml
+  ```bash
+  touch pyproject.toml
 
-```
+  ```
 
 **2. Adicione o conteúdo de configuração:**
 
 Copie o seguinte conteúdo para o seu `pyproject.toml`. Ele define o nome do nosso pacote, a versão, as dependências e, o mais importante, um *script de ponto de entrada*.
 
-```toml
-# pyproject.toml
-[build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+  ```toml
+  # pyproject.toml
+  [build-system]
+  requires = ["setuptools>=61.0"]
+  build-backend = "setuptools.build_meta"
 
-[project]
-name = "dataeng_pyspark_data_pipeline"
-version = "0.1.2"
-authors = [
-  { name="infobarbosa", email="infobarbosa@gmail.com" },
-]
-description = "Um pipeline de dados com PySpark estruturado com boas práticas de engenharia de software."
-readme = "README.md"
-requires-python = ">=3.8"
-license = "MIT"
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "Operating System :: OS Independent",
-]
-dependencies = [
-    "pyspark==4.0.0"
-]
+  [project]
+  name = "dataeng_pyspark_data_pipeline"
+  version = "0.1.2"
+  authors = [
+    { name="infobarbosa", email="infobarbosa@gmail.com" },
+  ]
+  description = "Um pipeline de dados com PySpark estruturado com boas práticas de engenharia de software."
+  readme = "README.md"
+  requires-python = ">=3.8"
+  license = "MIT"
+  classifiers = [
+      "Programming Language :: Python :: 3",
+      "Operating System :: OS Independent",
+  ]
+  dependencies = [
+      "pyspark==4.0.0"
+  ]
 
-[project.optional-dependencies]
-dev = [
-    "ruff==0.12.9",
-    "black==25.1.0",
-    "build==1.3.0"
-]
+  [project.optional-dependencies]
+  dev = [
+      "ruff==0.12.9",
+      "black==25.1.0",
+      "build==1.3.0"
+  ]
 
-[project.scripts]
-run-data-pipeline = "main:main"
+  [project.scripts]
+  run-data-pipeline = "main:main"
 
-[tool.setuptools]
-package-dir = {"" = "src"}
-packages = {find = {where = ["src"]}}
+  [tool.setuptools]
+  package-dir = {"" = "src"}
+  packages = {find = {where = ["src"]}}
 
-```
+  ```
 
-**3. Crie um arquivo `MANIFEST.in`:**
+3. Crie um arquivo `MANIFEST.in`:
 
   - O arquivo:
   ```bash
@@ -1393,15 +1419,15 @@ packages = {find = {where = ["src"]}}
 
   ```
 
-**4. Crie o arquivo `README.md`:**
+4. Crie o arquivo `README.md`:
 
 Este é o arquivo que será exibido quando alguém acessar o repositório.
-```bash
-echo "[DATAENG] Meu projeto bem estruturado de dados com PySpark" > README.md
+  ```bash
+  echo "[DATAENG] Meu projeto bem estruturado de dados com PySpark" > README.md
 
-```
+  ```
 
-**5. Adicione o pacote `build` a `requirements.txt`:**
+5. Adicione o pacote `build` a `requirements.txt`:
   - Configurando o arquivo:
 
     ```
@@ -1418,16 +1444,16 @@ echo "[DATAENG] Meu projeto bem estruturado de dados com PySpark" > README.md
 
     ```
 
-**6. Construa o pacote:**
+6. Construa o pacote:
 
-```bash
-python -m build
+  ```bash
+  python -m build
 
-```
+  ```
 
 Você verá que um novo diretório `dist/` foi criado, contendo o arquivo `.whl` (Wheel).
 
-**8. Instale e execute sua aplicação:**
+7. Instale e execute sua aplicação:
 
 Agora, para testar, você pode instalar sua própria aplicação como se fosse qualquer outra biblioteca.
 
@@ -1459,7 +1485,7 @@ Agora, para testar, você pode instalar sua própria aplicação como se fosse q
 
     ```
 
-### Passo 11: Garantido a qualidade com testes
+## Passo 13: Testes Automatizados
 
 Até agora, construímos uma aplicação robusta, bem estruturada e distribuível. Mas como podemos garantir que a lógica de negócio — o coração da nossa aplicação — está funcionando corretamente e continuará funcionando conforme o projeto evolui? A resposta é: **testes automatizados**.
 
@@ -1470,116 +1496,116 @@ Testar a lógica de transformação de dados é crucial porque:
 
 Vamos focar em **testes unitários** para nossa classe `Transformation`, pois ela contém a lógica pura, sem depender de I/O (leitura/escrita de arquivos).
 
-**1. Adicione o `pytest` às Dependências:**
+1. Adicione o `pytest` às Dependências:
 
 `pytest` é o framework de testes mais popular para Python. Vamos adicioná-lo ao nosso projeto.
 
-Atualize o `requirements.txt`:
-```
-# requirements.txt
-pyspark==4.0.0
-ruff==0.12.9
-black==25.1.0
-build==1.3.0
-pytest==8.4.1  # Adicione esta linha
-```
+- Atualize o `requirements.txt`:
+  ```
+  # requirements.txt
+  pyspark==4.0.0
+  ruff==0.12.9
+  black==25.1.0
+  build==1.3.0
+  pytest==8.4.1  # Adicione esta linha
+  ```
 *(Nota: você pode usar uma versão mais recente do pytest se desejar)*
 
-E instale a nova dependência:
-```bash
-pip install -r requirements.txt
+- Instale a nova dependência:
+  ```bash
+  pip install -r requirements.txt
 
-```
+  ```
 
-**2. Crie a Estrutura de Testes:**
+2. Crie a Estrutura de Testes:
 
 É uma convenção criar um diretório `tests` na raiz do projeto, separado do código-fonte (`src`).
 
-```bash
-mkdir tests
-touch tests/__init__.py
+  ```bash
+  mkdir tests
+  touch tests/__init__.py
 
-```
+  ```
 
 Dentro deste diretório, criaremos um arquivo para testar nossas transformações. O nome do arquivo deve começar com `test_`.
 
-```bash
-touch tests/test_transformations.py
+  ```bash
+  touch tests/test_transformations.py
 
-```
+  ```
 
-**3. Escrevendo Nosso Primeiro Teste:**
+3. Escrevendo Nosso Primeiro Teste:
 
 Vamos escrever um teste para o método `add_valor_total_pedidos` da nossa classe `Transformation`. O teste seguirá 3 passos: **Arrange** (Preparar), **Act** (Agir) e **Assert** (Verificar).
 
 Adicione o seguinte código ao arquivo `tests/test_transformations.py`:
 
-```python
-# tests/test_transformations.py
-import pytest
-from pyspark.sql import SparkSession
-from pyspark.sql.types import StructType, StructField, StringType, FloatType, LongType
-from src.processing.transformations import Transformation
+  ```python
+  # tests/test_transformations.py
+  import pytest
+  from pyspark.sql import SparkSession
+  from pyspark.sql.types import StructType, StructField, StringType, FloatType, LongType
+  from src.processing.transformations import Transformation
 
-@pytest.fixture(scope="session")
-def spark_session():
-    """
-    Cria uma SparkSession para ser usada em todos os testes.
-    A sessão é finalizada automaticamente ao final da execução dos testes.
-    """
-    spark = SparkSession.builder \
-        .appName("PySpark Unit Tests") \
-        .master("local[*]") \
-        .getOrCreate()
-    yield spark
-    spark.stop()
+  @pytest.fixture(scope="session")
+  def spark_session():
+      """
+      Cria uma SparkSession para ser usada em todos os testes.
+      A sessão é finalizada automaticamente ao final da execução dos testes.
+      """
+      spark = SparkSession.builder \
+          .appName("PySpark Unit Tests") \
+          .master("local[*]") \
+          .getOrCreate()
+      yield spark
+      spark.stop()
 
-def test_add_valor_total_pedidos(spark_session):
-    """
-    Testa a função add_valor_total_pedidos para garantir que a coluna 'valor_total'
-    é calculada corretamente.
-    """
-    # 1. Arrange (Preparar os dados de entrada e o resultado esperado)
-    transformer = Transformation()
+  def test_add_valor_total_pedidos(spark_session):
+      """
+      Testa a função add_valor_total_pedidos para garantir que a coluna 'valor_total'
+      é calculada corretamente.
+      """
+      # 1. Arrange (Preparar os dados de entrada e o resultado esperado)
+      transformer = Transformation()
 
-    schema_entrada = StructType([
-        StructField("produto", StringType(), True),
-        StructField("valor_unitario", FloatType(), True),
-        StructField("quantidade", LongType(), True),
-    ])
-    dados_entrada = [
-        ("Produto A", 10.0, 2),
-        ("Produto B", 5.5, 3),
-        ("Produto C", 100.0, 1)
-    ]
-    df_entrada = spark_session.createDataFrame(dados_entrada, schema_entrada)
+      schema_entrada = StructType([
+          StructField("produto", StringType(), True),
+          StructField("valor_unitario", FloatType(), True),
+          StructField("quantidade", LongType(), True),
+      ])
+      dados_entrada = [
+          ("Produto A", 10.0, 2),
+          ("Produto B", 5.5, 3),
+          ("Produto C", 100.0, 1)
+      ]
+      df_entrada = spark_session.createDataFrame(dados_entrada, schema_entrada)
 
-    schema_esperado = StructType([
-        StructField("produto", StringType(), True),
-        StructField("valor_unitario", FloatType(), True),
-        StructField("quantidade", LongType(), True),
-        StructField("valor_total", FloatType(), True)
-    ])
-    dados_esperados = [
-        ("Produto A", 10.0, 2, 20.0),
-        ("Produto B", 5.5, 3, 16.5),
-        ("Produto C", 100.0, 1, 100.0)
-    ]
-    df_esperado = spark_session.createDataFrame(dados_esperados, schema_esperado)
+      schema_esperado = StructType([
+          StructField("produto", StringType(), True),
+          StructField("valor_unitario", FloatType(), True),
+          StructField("quantidade", LongType(), True),
+          StructField("valor_total", FloatType(), True)
+      ])
+      dados_esperados = [
+          ("Produto A", 10.0, 2, 20.0),
+          ("Produto B", 5.5, 3, 16.5),
+          ("Produto C", 100.0, 1, 100.0)
+      ]
+      df_esperado = spark_session.createDataFrame(dados_esperados, schema_esperado)
 
-    # 2. Act (Executar a função a ser testada)
-    df_resultado = transformer.add_valor_total_pedidos(df_entrada)
+      # 2. Act (Executar a função a ser testada)
+      df_resultado = transformer.add_valor_total_pedidos(df_entrada)
 
-    # 3. Assert (Verificar se o resultado é o esperado)
-    # Coletamos os dados dos DataFrames para comparar como listas de dicionários
-    resultado_coletado = sorted([row.asDict() for row in df_resultado.collect()], key=lambda x: x['produto'])
-    esperado_coletado = sorted([row.asDict() for row in df_esperado.collect()], key=lambda x: x['produto'])
+      # 3. Assert (Verificar se o resultado é o esperado)
+      # Coletamos os dados dos DataFrames para comparar como listas de dicionários
+      resultado_coletado = sorted([row.asDict() for row in df_resultado.collect()], key=lambda x: x['produto'])
+      esperado_coletado = sorted([row.asDict() for row in df_esperado.collect()], key=lambda x: x['produto'])
 
-    assert df_resultado.count() == df_esperado.count(), "O número de linhas não corresponde ao esperado."
-    assert df_resultado.columns == df_esperado.columns, "As colunas não correspondem ao esperado."
-    assert resultado_coletado == esperado_coletado, "O conteúdo dos DataFrames não é igual."
+      assert df_resultado.count() == df_esperado.count(), "O número de linhas não corresponde ao esperado."
+      assert df_resultado.columns == df_esperado.columns, "As colunas não correspondem ao esperado."
+      assert resultado_coletado == esperado_coletado, "O conteúdo dos DataFrames não é igual."
 
-```
+  ```
 
 **O que este código faz?**
 - **`@pytest.fixture`**: Cria uma `SparkSession` que pode ser reutilizada por vários testes. É mais eficiente do que criar uma nova sessão para cada teste.
@@ -1588,77 +1614,78 @@ def test_add_valor_total_pedidos(spark_session):
     - **Act**: Chamamos o método `add_valor_total_pedidos` com nosso DataFrame de teste.
     - **Assert**: Comparamos o resultado. Como a ordem das linhas em um DataFrame não é garantida, a forma mais segura de comparar é coletar os resultados (`.collect()`), ordená-los e então comparar as listas de objetos Python. Também verificamos se o número de linhas e as colunas são idênticos.
 
-**4. Adicionando um Segundo Teste:**
+4. Adicionando um Segundo Teste:
 
 Para solidificar o conceito, vamos adicionar um teste para o método `get_top_10_clientes`. A estratégia será criar um cenário com mais de 10 clientes para garantir que a lógica de agregação, soma e limite funcione corretamente.
 
 Adicione o seguinte teste ao final do arquivo `tests/test_transformations.py`:
 
-```python
-def test_get_top_10_clientes(spark_session):
-    """
-    Testa a função get_top_10_clientes para garantir que ela agrupa,
-    soma os valores totais por cliente e retorna apenas os 10 maiores,
-    ordenados corretamente.
-    """
-    # 1. Arrange
-    transformer = Transformation()
+  ```python
+  def test_get_top_10_clientes(spark_session):
+      """
+      Testa a função get_top_10_clientes para garantir que ela agrupa,
+      soma os valores totais por cliente e retorna apenas os 10 maiores,
+      ordenados corretamente.
+      """
+      # 1. Arrange
+      transformer = Transformation()
 
-    schema_entrada = StructType([
-        StructField("id_cliente", LongType(), True),
-        StructField("valor_total", FloatType(), True),
-    ])
-    # Criando 12 clientes para garantir que o limit(10) funcione
-    dados_entrada = [
-        (1, 100.0), (2, 200.0), (1, 50.0),   # Cliente 1: total 150.0
-        (3, 300.0), (4, 400.0), (5, 500.0),
-        (6, 600.0), (7, 700.0), (8, 800.0),
-        (9, 900.0), (10, 1000.0), (11, 1100.0),
-        (12, 50.0)
-    ]
-    df_entrada = spark_session.createDataFrame(dados_entrada, schema_entrada)
+      schema_entrada = StructType([
+          StructField("id_cliente", LongType(), True),
+          StructField("valor_total", FloatType(), True),
+      ])
+      # Criando 12 clientes para garantir que o limit(10) funcione
+      dados_entrada = [
+          (1, 100.0), (2, 200.0), (1, 50.0),   # Cliente 1: total 150.0
+          (3, 300.0), (4, 400.0), (5, 500.0),
+          (6, 600.0), (7, 700.0), (8, 800.0),
+          (9, 900.0), (10, 1000.0), (11, 1100.0),
+          (12, 50.0)
+      ]
+      df_entrada = spark_session.createDataFrame(dados_entrada, schema_entrada)
 
-    # O resultado esperado deve conter os 10 clientes com maiores valores,
-    # ordenados de forma decrescente.
-    schema_esperado = StructType([
-        StructField("id_cliente", LongType(), True),
-        StructField("valor_total", FloatType(), True)
-    ])
-    dados_esperados = [
-        (11, 1100.0),
-        (10, 1000.0),
-        (9, 900.0),
-        (8, 800.0),
-        (7, 700.0),
-        (6, 600.0),
-        (5, 500.0),
-        (4, 400.0),
-        (3, 300.0),
-        (2, 200.0) # Cliente 1 (total 150.0) e 12 (total 50.0) devem ficar de fora
-    ]
-    df_esperado = spark_session.createDataFrame(dados_esperados, schema_esperado)
+      # O resultado esperado deve conter os 10 clientes com maiores valores,
+      # ordenados de forma decrescente.
+      schema_esperado = StructType([
+          StructField("id_cliente", LongType(), True),
+          StructField("valor_total", FloatType(), True)
+      ])
+      dados_esperados = [
+          (11, 1100.0),
+          (10, 1000.0),
+          (9, 900.0),
+          (8, 800.0),
+          (7, 700.0),
+          (6, 600.0),
+          (5, 500.0),
+          (4, 400.0),
+          (3, 300.0),
+          (2, 200.0) # Cliente 1 (total 150.0) e 12 (total 50.0) devem ficar de fora
+      ]
+      df_esperado = spark_session.createDataFrame(dados_esperados, schema_esperado)
 
-    # 2. Act
-    df_resultado = transformer.get_top_10_clientes(df_entrada)
+      # 2. Act
+      df_resultado = transformer.get_top_10_clientes(df_entrada)
 
-    # 3. Assert
-    # A ordem é importante neste teste, então coletamos os dados como estão
-    resultado_coletado = [row.asDict() for row in df_resultado.collect()]
-    esperado_coletado = [row.asDict() for row in df_esperado.collect()]
+      # 3. Assert
+      # A ordem é importante neste teste, então coletamos os dados como estão
+      resultado_coletado = [row.asDict() for row in df_resultado.collect()]
+      esperado_coletado = [row.asDict() for row in df_esperado.collect()]
 
-    assert df_resultado.count() == 10, "O DataFrame resultante deve ter exatamente 10 linhas."
-    assert df_resultado.columns == df_esperado.columns, "As colunas não correspondem ao esperado."
-    assert resultado_coletado == esperado_coletado, "Os dados dos 10 maiores clientes não correspondem ao esperado."
+      assert df_resultado.count() == 10, "O DataFrame resultante deve ter exatamente 10 linhas."
+      assert df_resultado.columns == df_esperado.columns, "As colunas não correspondem ao esperado."
+      assert resultado_coletado == esperado_coletado, "Os dados dos 10 maiores clientes não correspondem ao esperado."
 
-```
+  ```
 
-**5. Executando os Testes:**
+5. Executando os Testes:
 
 Para rodar todos os testes do seu projeto, basta executar o comando `pytest` na raiz do seu diretório:
 
-```bash
-pytest
-```
+  ```bash
+  pytest
+
+  ```
 
 Agora, o `pytest` encontrará e executará os dois testes. A saída deve ser:
 
