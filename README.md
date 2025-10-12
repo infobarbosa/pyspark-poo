@@ -24,11 +24,11 @@ Este repositório é um guia passo a passo para refatorar um script PySpark mono
 
 ---
 
-### Configuração Inicial
+## Configuração Inicial
 
 Antes de começar, prepare seu ambiente:
 
-ATENÇÃO! Se estiver utilizando Cloud9, utilize esse [tutorial](https://github.com/infobarbosa/data-engineering-cloud9]).
+ATENÇÃO! Se estiver utilizando Cloud9, utilize esse [tutorial](https://github.com/infobarbosa/data-engineering-cloud9).
 
 1. **Instale o Java 17:**
     ```bash
@@ -99,11 +99,15 @@ ATENÇÃO! Se estiver utilizando Cloud9, utilize esse [tutorial](https://github.
 
 
 
-### O Ponto de Partida: Script com Inferência de Schema
+## O Ponto de Partida
 
-Vamos começar com um script monolítico. Copie o código abaixo e cole no seu arquivo `src/main.py`.
+Vamos começar com um script monolítico. 
+```bash
+touch src/main.py
 
-Note que, ao ler os arquivos (`.json` e `.csv`), **não estamos definindo um schema**. Estamos deixando o Spark "adivinhar" a estrutura e os tipos de dados.
+```
+
+Adicione o conteúdo abaixo no arquivo `src/main.py`:
 
 ```python
 # src/main.py (Versão 1: com inferência de schema)
@@ -178,10 +182,10 @@ Se o output acima não estiver aparecendo, verifique se o Spark está rodando.
 
 ---
 
-### Passo 0: A Importância de Definir Schemas Explícitos
+## Passo 1: Schemas Explícitos
 
 Este script funciona, mas depender da inferência de schema é uma má prática em produção. Vamos entender o porquê.<br>
-Deixar o Spark adivinhar o schema (`inferSchema`) é conveniente para exploração de dados, mas traz três grandes problemas para pipelines de dados sérios:
+Deixar o Spark "adivinhar" o schema (`inferSchema`) é conveniente para exploração de dados, mas traz três grandes problemas para pipelines de dados sérios:
 
 1.  **Desempenho:** Para inferir o schema, o Spark precisa ler os dados uma vez apenas para analisar a estrutura e os tipos. Depois, ele lê os dados uma segunda vez para de fato carregá-los. Isso pode dobrar o tempo de leitura, um custo enorme para datasets grandes.
 2.  **Precisão:** O Spark pode interpretar um tipo de dado de forma errada. Uma coluna de CEP (`"01234-567"`) pode ser lida como `integer` (e virar `1234567`), ou uma data em formato específico pode virar `string`. Isso causa erros silenciosos que corrompem a análise.
@@ -189,98 +193,168 @@ Deixar o Spark adivinhar o schema (`inferSchema`) é conveniente para exploraç�
 
 A solução é **sempre** definir o schema explicitamente.
 
-### Exemplo Prático: O Perigo em Ação
+### Exemplo 1:
 
 Vamos simular um problema comum. Imagine que temos um arquivo CSV simples em `data/input/codigos.csv` com códigos de produtos. Note que alguns códigos possuem zeros à esquerda, que são importantes.
 
-**1. Crie o arquivo `data/input/codigos.csv` com o seguinte conteúdo:**
-```csv
-codigo,categoria
-0101,A
-0202,B
-303,C
+**1. Crie o arquivo `data.csv`:**
+```bash
+touch data/input/data.csv
+
 ```
 
-**2. Crie um script temporário para executar o teste (ex: `test_schema.py`):**
-Agora, vamos tentar ler este arquivo com `inferSchema` e verificar o comprimento de cada código, que deveria ser 4 caracteres.
+Inclua o conteúdo a seguir em `data.csv`:
+```csv
+id,nome,cargo,salario,cod_bonus
+1,"João Silva",Analista,5000.0,0101
+2,"Maria Santos",Gerente,12000.0,0202
+3,"Carlos Oliveira",Diretor,40000.0,101
 
+```
+
+**2. Crie o script `infer-schema-1.py`:**
+
+```bash
+touch src/infer-schema-1.py
+
+```
+
+Adicione o seguinte conteúdo ao script `infer-schema-1.py`:
 ```python
-# test_schema.py (TENTATIVA COM INFERÊNCIA DE SCHEMA)
 from pyspark.sql import SparkSession
+from pyspark.sql.types import StructType, StructField, StringType, DoubleType, IntegerType
 from pyspark.sql import functions as F
 
-spark = SparkSession.builder.appName("ExemploInferSchema").getOrCreate()
+# Inicializa a SparkSession
+spark = SparkSession.builder.appName("RiscoInferSchemaSalarios").getOrCreate()
 
-# Lendo com inferSchema=True
-df_codigos = spark.read.csv("data/input/codigos.csv", header=True, inferSchema=True)
+# --- Cenário: Confusão de Bônus por Causa do inferSchema ---
+
+# --- Abordagem 1: O Risco do inferSchema=True ---
+print("--- 1. Lendo com inferSchema (Abordagem Perigosa) ---")
+
+# O Spark vai "olhar" os dados e tentar adivinhar o tipo de cada coluna.
+# Ele verá '0101' (string) e 101 (int) na mesma coluna e pode decidir
+# converter tudo para inteiro, pois é o tipo mais "comum" ou que se encaixa.
+
+df = spark.read.option("inferSchema", "true").csv("data/input/data.csv", header=True)
 
 print("Schema inferido pelo Spark:")
-df_codigos.printSchema()
+df.printSchema()
+# Resultado esperado: 'cod_bonus' será inferido como 'long' ou 'integer',
+# o que fará com que "0101" seja lido como o número 101.
 
-print("Dados lidos (com perda de dados!):")
-df_codigos.show()
+print("\nDados como o Spark os leu (com 'cod_bonus' corrompido):")
+df.show()
 
-try:
-    # Esta operação vai falhar!
-    print("Tentando calcular o comprimento dos códigos...")
-    df_comprimento = df_codigos.withColumn("comprimento", F.length(F.col("codigo")))
-    df_comprimento.show()
-except Exception as e:
-    print(f"\nERRO! A operação falhou. Causa: O Spark inferiu 'codigo' como número e a função 'length' só funciona com texto.")
+# Agora, vamos simular o pagamento de um bônus.
+# O bônus é para o código 101 (Diretor), no valor de 50% do salário.
+cod_bonus_diretor = 101
+percentual_bonus = 0.5
+
+# A lógica de negócio errada:
+# O analista João Silva, cujo código era "0101", agora tem o código 101.
+# Ele receberá indevidamente o bônus do diretor!
+print(f"\nCalculando bônus de {percentual_bonus:.0%} para o código '{cod_bonus_diretor}'...")
+df_bonus = df_inferido.withColumn(
+    "valor_bonus",
+    F.when(F.col("cod_bonus") == cod_bonus_diretor, F.col("salario") * percentual_bonus).otherwise(0)
+)
+
+print("\nResultado do cálculo de bônus (INCORRETO):")
+df_bonus.show()
+print("PROBLEMA: João Silva (Analista) recebeu o bônus que era para Carlos Oliveira (Diretor)!")
 
 spark.stop()
+
 ```
 
 **3. Execute e veja o erro:**
 ```bash
-spark-submit test_schema.py
+spark-submit infer-schema-1.py
+
 ```
-Ao executar, você verá duas coisas:
-1.  O schema para a coluna `codigo` foi inferido como `IntegerType` (inteiro).
-2.  Nos dados exibidos, os zeros à esquerda foram perdidos (`0101` virou `101`).
-3.  A aplicação quebra com um erro, pois a função `length()` não pode ser aplicada a uma coluna do tipo inteiro.
 
-Este é um erro silencioso que se tornou um problema real. A inferência não só corrompeu os dados, como também causou uma falha na aplicação.
+### Exemplo 2 (corrigido):
+```bash
+touch src/infer-schema-2.py
 
-**4. A Solução: Schema Explícito**
-A solução é definir o schema explicitamente, tratando o código como `StringType` (texto).
+```
+
+Adicione o seguinte conteúdo ao script `infer-schema-2.py`:
 
 ```python
-# test_schema.py (VERSÃO CORRETA COM SCHEMA EXPLÍCITO)
 from pyspark.sql import SparkSession
+from pyspark.sql.types import StructType, StructField, StringType, DoubleType, IntegerType
 from pyspark.sql import functions as F
-from pyspark.sql.types import StructType, StructField, StringType
 
-spark = SparkSession.builder.appName("ExemploSchemaExplicito").getOrCreate()
+# Inicializa a SparkSession
+spark = SparkSession.builder.appName("CalculoDeBonus").getOrCreate()
 
-# Definindo o schema correto
-schema_correto = StructType([
-    StructField("codigo", StringType(), True),
-    StructField("categoria", StringType(), True)
+# O bônus é para o código 101 (Diretor), no valor de 50% do salário.
+cod_bonus_diretor = 101
+percentual_bonus = 0.5
+
+# --- Abordagem 2: A Solução com Schema Definido Manualmente ---
+print("\n--- 2. Lendo com Schema Definido (Abordagem Segura) ---")
+
+# Definindo explicitamente que 'cod_bonus' é uma String.
+schema = StructType([
+    StructField("id", IntegerType(), True),
+    StructField("nome", StringType(), True),
+    StructField("cargo", StringType(), True),
+    StructField("salario", DoubleType(), True),
+    StructField("cod_bonus", StringType(), True) # A definição correta!
 ])
 
-# Lendo com o schema correto
-df_codigos_correto = spark.read.csv("data/input/codigos.csv", header=True, schema=schema_correto)
+# Criando o DataFrame com o schema seguro
+df = spark.read.option("header", "true").schema(schema).csv("data.csv")
 
-print("Schema explícito definido:")
-df_codigos_correto.printSchema()
+print("Schema definido manualmente:")
+df.printSchema()
 
-print("Dados lidos corretamente:
-")
-df_codigos_correto.show()
+print("\nDados lidos corretamente (preservando o '0' em '0101'):")
+df.show()
 
-# Agora a operação funciona!
-df_comprimento_correto = df_codigos_correto.withColumn("comprimento", F.length(F.col("codigo")))
-print("Cálculo do comprimento bem-sucedido:")
-df_comprimento_correto.show()
+# Agora, o cálculo de bônus funcionará como esperado.
+# O bônus será aplicado ao 'cod_bonus' numérico 101, mas como nossa
+# coluna agora é String, precisamos fazer o cast.
+print(f"\nCalculando bônus de {percentual_bonus:.0%} para o código '{cod_bonus_diretor}' (de forma segura)...")
+df = df.withColumn(
+    "valor_bonus",
+    F.when(F.col("cod_bonus") == str(cod_bonus_diretor), F.col("salario") * percentual_bonus).otherwise(0)
+)
 
+print("\nResultado do cálculo de bônus (CORRETO):")
+df.show()
+print("SUCESSO: Apenas Carlos Oliveira (Diretor) recebeu o bônus, como esperado.")
+
+# Finaliza a SparkSession
 spark.stop()
+
 ```
-Com o schema explícito, os dados são lidos corretamente, os zeros à esquerda são preservados e a operação de string funciona como esperado. Este exemplo simples demonstra por que definir schemas é uma regra de ouro em pipelines de dados robustos.
+
+**3. Execute:**
+```bash
+spark-submit infer-schema-2.py
+
+```
+
+
+### Exemplo 3 (precisão decimal)
+```bash
+touch src/infer-schema-3.py
+
+```
+
+Adicione o seguinte conteúdo ao script `infer-schema-3.py`:
+```python
+
+```
+
 
 ---
-A solução é **sempre** definir o schema explicitamente.
-
+### Definindo os schemas do projeto
 
 **1. Defina os Schemas com `StructType`:**
 
@@ -315,10 +389,10 @@ schema_pedidos = StructType([
 
 **2. Atualize o `src/main.py` para usar os Schemas:**
 
-Agora, substitua todo o conteúdo do `src/main.py` pela versão abaixo. Este será nosso **ponto de partida oficial** para a refatoração.
+Substitua todo o conteúdo do `src/main.py` pela versão abaixo.
 
 ```python
-# src/main.py (Versão 2: Ponto de Partida Oficial com Schema Explícito)
+# src/main.py (Versão 2: Com Schema Explícito)
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.types import (StructType, StructField, StringType, LongType, 
@@ -381,7 +455,7 @@ Com nosso ponto de partida agora robusto e performático, podemos começar a ref
 
 ---
 
-### Planejamento
+## Planejamento
 
 Nosso objetivo é evoluir de um simples script para uma aplicação PySpark bem estruturada. Para isso, vamos organizar nosso código em diretórios, onde cada um terá uma responsabilidade única. Esta é a estrutura que vamos construir:
 
@@ -408,10 +482,11 @@ Vamos seguir este plano passo a passo.
 
 ---
 
-### Passo 1: Centralizando as Configurações
+## Passo 2: Centralizando as Configurações
 
-É uma boa prática não deixar "strings mágicas" (como caminhos de arquivos) espalhadas pelo código. Vamos centralizá-las em um único lugar.
+É uma boa prática *NÃO* deixar "strings mágicas" (como caminhos de arquivos) espalhadas pelo código. Vamos centralizá-las em um único lugar.
 
+### Pacote `config`
 **1. Crie o diretório e o arquivo de inicialização:**
 
 ```bash
@@ -425,6 +500,7 @@ touch src/config/__init__.py
 Este arquivo conterá os caminhos para nossos dados de entrada e para a pasta de saída onde salvaremos o resultado.
 ```bash
 touch src/config/settings.py
+
 ```
 
 **3. Adicione o seguinte código ao `src/config/settings.py`:**
@@ -465,7 +541,60 @@ OUTPUT_PATH = "data/output/pedidos_por_cliente"
   pedidos_clientes.write.mode("overwrite").parquet(OUTPUT_PATH)
   ```
 
-### Passo 2: Gerenciando a Sessão Spark
+### Externalizando configurações
+Manter a configuração em um arquivo .py é bom, mas misturar código (Python) com dados de configuração puros não é o ideal. 
+Ambientes de produção modernos usam formatos como YAML ou JSON, que são agnósticos de linguagem e mais fáceis de serem gerenciados por ferramentas de automação (como Docker, Kubernetes, etc.).
+
+**A Solução**: Usar um arquivo YAML para nossas configurações.
+
+1. Crie um arquivo `config/settings.yaml`:
+  ```bash
+  mkdir config
+
+  ```
+
+  ```bash
+  touch config/settings.yaml
+
+  ```
+
+2. Adicione o seguinte conteúdo ao arquivo `config/settings.yaml`:
+  ```yaml
+  # config/settings.yaml
+  spark:
+    app_name: "Analise de Pedidos"
+
+  paths:
+    clientes: "data/input/clientes.gz"
+    pedidos: "data/input/pedidos.gz"
+    output: "data/output/pedidos_por_cliente"
+
+  file_options:
+    pedidos_csv:
+      compression: "gzip"
+      header: true
+      sep: ";"
+      
+  ```
+
+---
+
+3. Adicione o conteúdo abaixo ao arquivo `src/config/settings.py`:
+```python
+import yaml
+```
+
+```python
+# src/config/settings.py
+
+def carregar_config(path: str = "config/settings.yaml") -> dict:
+    """Carrega um arquivo de configuração YAML."""
+    with open(path, 'r') as file:
+        return yaml.safe_load(file)
+    
+```
+
+## Passo 3: Gerenciando a Sessão Spark
 
 A criação da `SparkSession` também pode ser isolada para ser mais reutilizável e fácil de configurar.
 
