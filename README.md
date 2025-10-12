@@ -526,9 +526,14 @@ OUTPUT_PATH = "data/output/pedidos_por_cliente"
 Manter a configuração em um arquivo .py é bom, mas misturar código (Python) com dados de configuração puros não é o ideal. 
 Ambientes de produção modernos usam formatos como YAML ou JSON, que são agnósticos de linguagem e mais fáceis de serem gerenciados por ferramentas de automação (como Docker, Kubernetes, etc.).
 
-**A Solução**: Usar um arquivo YAML para nossas configurações.
+**Solução**: Usar um arquivo YAML para nossas configurações.
+1. Instale a dependência `pyyaml`:
+  ```bash
+  pip install pyyaml
+  
+  ```
 
-1. Crie um arquivo `config/settings.yaml`:
+2. Crie um arquivo `config/settings.yaml`:
   ```bash
   mkdir config
 
@@ -539,7 +544,7 @@ Ambientes de produção modernos usam formatos como YAML ou JSON, que são agnó
 
   ```
 
-2. Adicione o seguinte conteúdo ao arquivo `config/settings.yaml`:
+3. Adicione o seguinte conteúdo ao arquivo `config/settings.yaml`:
   ```yaml
   # config/settings.yaml
   spark:
@@ -553,27 +558,82 @@ Ambientes de produção modernos usam formatos como YAML ou JSON, que são agnó
   file_options:
     pedidos_csv:
       compression: "gzip"
-      header: true
+      header: True
       sep: ";"
       
   ```
 
 ---
 
-3. Adicione o conteúdo abaixo ao arquivo `src/config/settings.py`:
-```python
-import yaml
-```
+4. Substitua todo o conteúdo do arquivo `src/config/settings.py`:
 
-```python
-# src/config/settings.py
+  ```python
+  # src/config/settings.py
+  import yaml
 
-def carregar_config(path: str = "config/settings.yaml") -> dict:
-    """Carrega um arquivo de configuração YAML."""
-    with open(path, 'r') as file:
-        return yaml.safe_load(file)
-    
-```
+  def carregar_config(path: str = "config/settings.yaml") -> dict:
+      """Carrega um arquivo de configuração YAML."""
+      with open(path, 'r') as file:
+          return yaml.safe_load(file)
+      
+  ```
+
+5. Ajuste a importação em `main.py`:
+
+  ```python
+  from config.settings import carregar_config
+  ``` 
+
+6. Logo após o import defina a variável `config` em `main.py`:
+
+  ```python
+  config = carregar_config()
+  ```
+
+7. Defina agora a variável `app_name` em `main.py`:
+
+  ```python
+  app_name = config['spark']['app_name']
+  ```
+
+8. Utilize `app_name` para criar a sessão spark em `main.py`
+
+  ```
+  spark = SparkSession.builder.appName(app_name).getOrCreate()
+  ```
+
+9. Faça o ajuste do trecho a seguir:
+
+  ```python
+  path_clientes = config['paths']['clientes']
+  clientes = spark.read.option("compression", "gzip").json(path_clientes, schema=schema_clientes)
+  ```
+
+10. Faça o ajuste do trecho a seguir:
+
+  ```python
+  print("Abrindo o dataframe de pedidos")
+  path_pedidos = config['paths']['pedidos']
+  compression_pedidos = config['file_options']['pedidos_csv']['compression']
+  header_pedidos = config['file_options']['pedidos_csv']['header']
+  separator_pedidos = config['file_options']['pedidos_csv']['sep']
+
+  pedidos = spark.read.option("compression", compression_pedidos).csv(path_pedidos, header=True, schema=schema_pedidos, sep=separator_pedidos)
+  ```
+
+11. Faça o ajuste do trecho a seguir:
+
+  ```python
+  print("Escrevendo o resultado em parquet")
+  path_output = config['paths']['output']
+  pedidos_clientes.write.mode("overwrite").parquet(path_output)
+  ```
+  
+---
+
+
+
+
 
 ## Passo 3: Gerenciando a Sessão Spark
 
