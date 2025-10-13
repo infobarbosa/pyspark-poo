@@ -682,7 +682,7 @@ class SparkSessionManager:
 
 - Instanciando a sessão spark
   ```python
-  spark = SparkSessionManager.get_spark_session()
+  spark = SparkSessionManager.get_spark_session(app_name=app_name)
   ```
 ---
 
@@ -785,16 +785,16 @@ Esta classe irá conter a lógica para ler os arquivos de clientes e pedidos, e 
 
 - Substituir a carga dos dataframes de clientes e pedidos pelos seguintes trechos:
   ```python
-  clientes = dh.load_clientes(path = CLIENTES_PATH)
+  clientes = dh.load_clientes(path = path_clientes)
   ```
 
   ```python
-  pedidos = dh.load_pedidos(path = PEDIDOS_PATH)
+  pedidos = dh.load_pedidos(path = path_pedidos)
   ```
 
 - Substituir a escrita de dados parquet pelo seguinte trecho:
   ```python
-  dh.write_parquet(df=pedidos_clientes, path=OUTPUT_PATH)
+  dh.write_parquet(df=pedidos_clientes, path=path_output)
   ```
 
 ---
