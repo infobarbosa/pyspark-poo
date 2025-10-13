@@ -899,56 +899,68 @@ Esta classe contém as regras de negócio puras, que transformam um DataFrame de
   
 ---
 
-## Passo 6: Orquestrando a Aplicação no `main.py`
+## Passo 6: Refatoração de `main.py`
 
-Agora, vamos juntar todas as peças. O `main.py` se tornará um orquestrador limpo e legível, que apenas chama os métodos das nossas classes.
+Vamos promover algumas alterações pra que o nosso `main.py` fique mais limpo e organizado.
+- Remoção de imports desnecessários
+- Nomes de variáveis mais claras 
+- Encapsulamento da lógica na função `main()`
+
 
 1. Substitua todo o conteúdo do `src/main.py` pelo código abaixo:
 
   ```python
   # src/main.py
+  from config.settings import carregar_config
   from session.spark_session import SparkSessionManager
   from io_utils.data_handler import DataHandler
   from processing.transformations import Transformation
-  import config.settings as settings
 
   def main():
-      """
-      Função principal que orquestra a execução do pipeline de dados.
-      """
-      # 1. Inicialização
-      spark = SparkSessionManager.get_spark_session("Análise de Pedidos com POO")
+      config = carregar_config()
+      
+      app_name = config['spark']['app_name']
+      
+      spark = SparkSessionManager.get_spark_session(app_name=app_name)
       data_handler = DataHandler(spark)
       transformer = Transformation()
-
-      print("Pipeline iniciado...")
-
-      # 2. Carga de Dados (Input)
-      print("Carregando dados de clientes e pedidos...")
-      clientes_df = data_handler.load_clientes(settings.CLIENTES_PATH)
-      pedidos_df = data_handler.load_pedidos(settings.PEDIDOS_PATH)
-
-      # 3. Transformações (Processing)
-      print("Aplicando transformações...")
+      
+      print("Abrindo o dataframe de clientes")
+      path_clientes = config['paths']['clientes']
+      clientes_df = data_handler.load_clientes(path = path_clientes)
+      
+      clientes_df.show(5, truncate=False)
+      
+      print("Abrindo o dataframe de pedidos")
+      path_pedidos = config['paths']['pedidos']
+      compression_pedidos = config['file_options']['pedidos_csv']['compression']
+      header_pedidos = config['file_options']['pedidos_csv']['header']
+      separator_pedidos = config['file_options']['pedidos_csv']['sep']
+      pedidos_df = data_handler.load_pedidos(path = path_pedidos, compression=compression_pedidos, header=header_pedidos, sep=separator_pedidos)
+      
+      print("Adicionando a coluna valor_total")
       pedidos_com_valor_total_df = transformer.add_valor_total_pedidos(pedidos_df)
+      pedidos_com_valor_total_df.show(5, truncate=False)
+      
+      print("Calculando o valor total de pedidos por cliente e filtrar os 10 maiores")
       top_10_clientes_df = transformer.get_top_10_clientes(pedidos_com_valor_total_df)
+      
+      top_10_clientes_df.show(10, truncate=False)
+      
+      print("Fazendo a junção dos dataframes")
       resultado_final_df = transformer.join_pedidos_clientes(top_10_clientes_df, clientes_df)
-
-      # 4. Exibição e Salvamento (Output)
-      print("Top 10 clientes com maior valor total de pedidos:")
-      resultado_final_df.show(10, truncate=False)
-
-      print("Salvando resultado em formato Parquet...")
-      data_handler.write_parquet(resultado_final_df, settings.OUTPUT_PATH)
-
-      # 5. Finalização
+      
+      resultado_final_df.show(20, truncate=False)
+      
+      print("Escrevendo o resultado em parquet")
+      path_output = config['paths']['output']
+      data_handler.write_parquet(df=resultado_final_df, path=path_output)
+      
       spark.stop()
       print("Pipeline concluído com sucesso!")
 
-
   if __name__ == "__main__":
-      main()
-
+      main()  
   ```
 
 2. Faça o teste:
