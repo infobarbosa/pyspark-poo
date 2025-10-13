@@ -686,7 +686,7 @@ class SparkSessionManager:
   ```
 ---
 
-## Passo 4: Unificando a Leitura e Escrita de Dados (I/O)
+## Passo 4: Pacote de Leitura e Escrita de Dados (I/O)
 
 Vamos criar uma classe que lida com todas as operações de entrada (leitura) e saída (escrita) de dados.
 
