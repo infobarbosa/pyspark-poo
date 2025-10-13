@@ -710,7 +710,7 @@ touch src/io_utils/data_handler.py
 
 3. Adicione o seguinte código a ele:
 
-Esta classe irá conter a lógica para ler os arquivos de clientes e pedidos, e também um novo método para escrever nosso resultado final em formato Parquet.
+  Esta classe irá conter a lógica para ler os arquivos de clientes e pedidos, e também um novo método para escrever nosso resultado final em formato Parquet.
 
   ```python
   # src/io_utils/data_handler.py
@@ -754,10 +754,10 @@ Esta classe irá conter a lógica para ler os arquivos de clientes e pedidos, e 
           schema = self._get_schema_clientes()
           return self.spark.read.option("compression", "gzip").json(path, schema=schema)
 
-      def load_pedidos(self, path: str) -> DataFrame:
+      def load_pedidos(self, path: str, compression: str, header:bool, sep:str) -> DataFrame:
           """Carrega o dataframe de pedidos a partir de um arquivo CSV."""
           schema = self._get_schema_pedidos()
-          return self.spark.read.option("compression", "gzip").csv(path, header=True, schema=schema, sep=";")
+          return self.spark.read.option("compression", compression).csv(path, header=header, schema=schema, sep=sep)
 
       def write_parquet(self, df: DataFrame, path: str):
           """
@@ -785,16 +785,28 @@ Esta classe irá conter a lógica para ler os arquivos de clientes e pedidos, e 
 
 - Substituir a carga dos dataframes de clientes e pedidos pelos seguintes trechos:
   ```python
+  print("Abrindo o dataframe de clientes")
+  path_clientes = config['paths']['clientes']
   clientes = dh.load_clientes(path = path_clientes)
+
   ```
 
   ```python
-  pedidos = dh.load_pedidos(path = path_pedidos)
+  print("Abrindo o dataframe de pedidos")
+  path_pedidos = config['paths']['pedidos']
+  compression_pedidos = config['file_options']['pedidos_csv']['compression']
+  header_pedidos = config['file_options']['pedidos_csv']['header']
+  separator_pedidos = config['file_options']['pedidos_csv']['sep']
+  pedidos = dh.load_pedidos(path = path_pedidos, compression=compression_pedidos, header=header_pedidos, sep=separator_pedidos)
+
   ```
 
 - Substituir a escrita de dados parquet pelo seguinte trecho:
   ```python
+  print("Escrevendo o resultado em parquet")
+  path_output = config['paths']['output']
   dh.write_parquet(df=pedidos_clientes, path=path_output)
+
   ```
 
 ---
