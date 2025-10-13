@@ -1139,71 +1139,68 @@ import logging
 logger = logging.getLogger(__name__)
 ```
 
-1. Configure o Logging
+1. Importe o pacote `Logging` em `src/main.py`:
 
-  - Em `src/main.py`, adicione as linhas abaixo:
-    ```python
-    # importe o pacote logging
-    import logging
-    # outros imports...
-    ```
+  ```python
+  import logging
+  ```
 
-    ```python
-    # Crie a configuração do logging
-    def configurar_logging():
-      """Configura o logging para todo o projeto."""
-      logging.basicConfig(
-          # Nível mínimo de severidade para ser registrado.
-          # DEBUG < INFO < WARNING < ERROR < CRITICAL
-          level=logging.INFO,
+2. Crie uma função para configurar o logging:
 
-          # Formato da mensagem de log.
-          format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-          datefmt='%Y-%m-%d %H:%M:%S',
+  ```python
+  # Crie a configuração do logging
+  def configurar_logging():
+    """Configura o logging para todo o projeto."""
+    logging.basicConfig(
+        # Nível mínimo de severidade para ser registrado.
+        # DEBUG < INFO < WARNING < ERROR < CRITICAL
+        level=logging.INFO,
 
-          # Lista de handlers. Aqui, estamos logando para um arquivo e para o console.
-          handlers=[
-              logging.FileHandler("dataeng-pyspark-poo.log"), # Log para arquivo
-              logging.StreamHandler()                         # Log para o console (terminal)
-          ]
-      )
-      logging.info("Logging configurado.")
+        # Formato da mensagem de log.
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
 
-    ```
+        # Lista de handlers. Aqui, estamos logando para um arquivo e para o console.
+        handlers=[
+            logging.FileHandler("dataeng-pyspark-poo.log"), # Log para arquivo
+            logging.StreamHandler()                         # Log para o console (terminal)
+        ]
+    )
+    logging.info("Logging configurado.")
 
-    ```python
-    # Chame a configuração do logging no ponto de entrada da aplicação
-    if __name__ == "__main__":
+  ```
 
+3. Na função `main()` inclua a chamada a `configurar_logging()`:
+
+  ```python
+  if __name__ == "__main__":
       configurar_logging()
+      main()
 
-      logging.info("Aplicação iniciada.")
+  ```
 
-      # continua para a sua lógica
-    ```
+4. Em todas as classes, adicione a configuração do logger no início do arquivo e substitua todos os `print()` por chamadas ao `logging`.<br>
 
-  - Em todas as classes, adicione a configuração do logger no início do arquivo e substitua todos os `print()` por chamadas ao `logging`.<br>
+  Abaixo está um exemplo na classe `src/pipeline.py`:
 
-    Abaixo está um exemplo na classe `src/pipeline.py`:
+  ```python
+  # src/pipeline.py
+  import logging
+  from pyspark.sql import SparkSession
+  from io_utils.data_handler import DataHandler
+  from processing.transformations import Transformation
+  import config.settings as settings
 
-    ```python
-    # src/pipeline.py
-    import logging
-    from pyspark.sql import SparkSession
-    from io_utils.data_handler import DataHandler
-    from processing.transformations import Transformation
-    import config.settings as settings
+  logger = logging.getLogger(__name__)
 
-    logger = logging.getLogger(__name__)
+  class Pipeline:
+      # ... (o construtor __init__ permanece o mesmo) ...
 
-    class Pipeline:
-        # ... (o construtor __init__ permanece o mesmo) ...
-
-        def run(self):
-            logger.info("Pipeline iniciado...")
-            # ... (substitua os prints por logging.info) ...
-            logger.info("Pipeline concluído com sucesso!")
-    ```
+      def run(self):
+          logger.info("Pipeline iniciado...")
+          # ... (substitua os prints por logging.info) ...
+          logger.info("Pipeline concluído com sucesso!")
+  ```
 
 ## 9: Tratamento de Erros
 Ao trabalhar com processamento de dados em grande escala, é inevitável que nos deparemos com imprevistos, como dados ausentes ou malformados, falhas de conexão com fontes de dados ou erros de lógica em nossas transformações.
