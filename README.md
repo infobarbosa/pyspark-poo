@@ -1363,7 +1363,7 @@ Na raiz do seu projeto, crie um arquivo chamado `requirements.txt`.
 
 2. Adicione a dependência do PySpark:
 
-Abra o `requirements.txt` e adicione a versão exata do PySpark que você está usando. Você pode descobrir a versão com o comando `pip show pyspark`.
+  Abra o `requirements.txt` e adicione a versão exata do PySpark que você está usando. Você pode descobrir a versão com o comando `pip show pyspark`.
 
   ```
   # requirements.txt
@@ -1376,13 +1376,13 @@ Abra o `requirements.txt` e adicione a versão exata do PySpark que você está 
 
 3. Atualize as instruções de instalação:
 
-A partir de agora, a forma correta de instalar as dependências do projeto é:
+  A partir de agora, a forma correta de instalar as dependências do projeto é:
 
   ```bash
   pip install -r requirements.txt
 
   ```
-Isso garante que qualquer pessoa que execute seu projeto usará exatamente a mesma versão do PySpark.
+  Isso garante que qualquer pessoa que execute seu projeto usará exatamente a mesma versão do PySpark.
 
 ---
 
@@ -1454,7 +1454,7 @@ Copie o seguinte conteúdo para o seu `pyproject.toml`. Ele define o nome do nos
 
   [project]
   name = "dataeng_pyspark_data_pipeline"
-  version = "0.1.2"
+  version = "0.1.0"
   authors = [
     { name="infobarbosa", email="infobarbosa@gmail.com" },
   ]
@@ -1467,7 +1467,7 @@ Copie o seguinte conteúdo para o seu `pyproject.toml`. Ele define o nome do nos
       "Operating System :: OS Independent",
   ]
   dependencies = [
-      "pyspark==4.0.0"
+      "pyspark==4.0.0",
       "pyyaml==6.0.3"
   ]
 
