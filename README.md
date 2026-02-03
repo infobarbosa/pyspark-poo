@@ -30,76 +30,102 @@ Antes de começar, prepare seu ambiente:
 
 ATENÇÃO! Se estiver utilizando Cloud9, utilize esse [tutorial](https://github.com/infobarbosa/data-engineering-cloud9).
 
-1. **Instale o Java 17:**
-    ```bash
-    sudo apt update -y && sudo apt upgrade -y
 
-    ```
+1.  **Crie uma pasta para o projeto:**
 
-    ```bash
-    sudo apt install -y openjdk-17-jdk
+```bash
+mkdir -p data-engineering-pyspark/src
+mkdir -p data-engineering-pyspark/data/output
 
-    ```
+```
 
-2.  **Crie uma pasta para o projeto:**
-    ```bash
-    mkdir -p data-engineering-pyspark/src
-    mkdir -p data-engineering-pyspark/data/input
-    mkdir -p data-engineering-pyspark/data/output
-    
-    ```
-    
-    ```bash
-    cd data-engineering-pyspark
-    
-    ```
+```bash
+cd data-engineering-pyspark
 
-3.  **Crie um ambiente virtual e instale as dependências:**
-    ```bash
-    python3 -m venv .venv
-    
-    ```
+```
 
-    ```bash
-    source .venv/bin/activate
-    
-    ```
+2.  **Crie um ambiente virtual e instale as dependências:**
+```bash
+python3 -m venv .venv
 
-    ```bash
-    pip install pyspark
-    
-    ```
+```
 
-4.  **Baixe os datasets:**
-    Execute o script para baixar os dados necessários para a pasta `data/`.
-    
-    **Clientes**
-    ```bash
-    curl -L -o ./data/input/clientes.gz https://raw.githubusercontent.com/infobarbosa/dataset-json-clientes/main/data/clientes.json.gz
-    
-    ```
+```bash
+source .venv/bin/activate
 
-    Um olhada rápida no arquivo de clientes
-    ```bash
-    gunzip -c data/input/clientes.gz | head -n 5
+```
 
-    ```
+```bash
+pip install pyspark
 
-    **Pedidos**
-    ```bash
-    curl -L -o ./data/input/pedidos.gz https://raw.githubusercontent.com/infobarbosa/datasets-csv-pedidos/main/data/pedidos/pedidos-2024-01.csv.gz
+```
 
-    ```
+3.  **Baixe os datasets:**
+Faça o clone dos repositórios:
 
-    Uma olhada rápida no arquivo de pedidos
-    ```bash
-    gunzip -c ./data/input/pedidos.gz | head -n 5
-    
-    ```
+* Clientes
+```sh
+git clone https://github.com/infobarbosa/datasets-csv-clientes
 
+```
 
+```sh
+zcat datasets-csv-clientes/clientes.csv.gz | head -n 5
 
-## O Ponto de Partida
+```
+
+Output esperado:
+```
+id;nome;data_nasc;cpf;email;cidade;uf
+1;Calebe Pinto;1988-03-01;645.278.301-71;calebe.pinto@hotmail.com;Vila Velha;ES
+2;Lorenzo Silveira;1958-06-04;167.259.048-58;lorenzo.silveira@hotmail.com;Picos;PI
+3;Henry da Conceição;2003-11-13;685.402.197-94;henry.da.conceicao@live.com;Parnamirim;RN
+4;João Pedro Duarte;1995-10-26;354.806.172-90;joao.pedro.duarte@hotmail.com;Maracanaú;CE
+```
+
+* Pedidos
+```sh
+git clone https://github.com/infobarbosa/datasets-csv-pedidos
+
+```
+
+```sh
+zcat datasets-csv-pedidos/data/pedidos/pedidos-2026-01.csv.gz | head -5
+
+```
+
+Output esperado:
+```
+ID_PEDIDO;PRODUTO;VALOR_UNITARIO;QUANTIDADE;DATA_CRIACAO;UF;ID_CLIENTE
+f198e8f7-033d-414d-b032-20975e84edde;LIQUIDIFICADOR;300.0;1;2026-01-05T18:36:28;MG;8409
+97969db5-9304-4b80-b19e-3a9d60ce6520;CELULAR;1000.0;3;2026-01-01T11:58:48;DF;934
+f1db6c7e-0701-42fd-90b2-638b57cefe38;NOTEBOOK;1500.0;2;2026-01-17T15:28:57;MG;5872
+3994d9fa-6609-4818-8efa-c3a570a6116a;GELADEIRA;2000.0;1;2026-01-27T13:37:31;MA;174
+```
+
+* Pagamentos
+```sh
+git clone https://github.com/infobarbosa/dataset-json-pagamentos
+
+```
+
+```sh
+zcat dataset-json-pagamentos/data/pagamentos/pagamentos-2026-01.json.gz | head -5
+
+```
+
+Output esperado:
+```
+{"id_pedido": "f198e8f7-033d-414d-b032-20975e84edde", "forma_pagamento": "PIX", "valor_pagamento": 285.0, "status": true, "data_processamento": "2026-01-06T02:29:21.830930", "avaliacao_fraude": {"fraude": false, "score": 0.12}}
+{"id_pedido": "97969db5-9304-4b80-b19e-3a9d60ce6520", "forma_pagamento": "PIX", "valor_pagamento": 2850.0, "status": true, "data_processamento": "2026-01-01T22:26:07.151965", "avaliacao_fraude": {"fraude": false, "score": 0.11}}
+{"id_pedido": "f1db6c7e-0701-42fd-90b2-638b57cefe38", "forma_pagamento": "PIX", "valor_pagamento": 2850.0, "status": true, "data_processamento": "2026-01-17T15:48:54.507491", "avaliacao_fraude": {"fraude": false, "score": 0.83}}
+{"id_pedido": "3994d9fa-6609-4818-8efa-c3a570a6116a", "forma_pagamento": "CARTAO_CREDITO", "valor_pagamento": 2000.0, "status": true, "data_processamento": "2026-01-27T20:50:41.884628", "avaliacao_fraude": {"fraude": false, "score": 0.56}}
+{"id_pedido": "04065285-5a0b-4631-af25-ea318f389b83", "forma_pagamento": "CARTAO_CREDITO", "valor_pagamento": 900.0, "status": true, "data_processamento": "2026-01-23T15:30:16.761626", "avaliacao_fraude": {"fraude": false, "score": 0.02}}
+```
+
+---
+
+## Script inicial
 
 Vamos começar com um script monolítico. 
 ```bash
@@ -110,7 +136,7 @@ touch src/main.py
 Adicione o conteúdo abaixo no arquivo `src/main.py`:
 
 ```python
-# src/main.py (Versão 1: com inferência de schema)
+# src/main.py
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 
@@ -118,18 +144,17 @@ print("Abrindo a sessao spark")
 spark = SparkSession.builder.appName("Analise de Pedidos").getOrCreate()
 
 print("Abrindo o dataframe de clientes, deixando o Spark inferir o schema")
-clientes = spark.read.option("compression", "gzip").json("data/input/clientes.gz")
+clientes = spark.read.option("compression", "gzip").json("dataset-json-clientes/data/clientes.json.gz")
 
 clientes.printSchema()
 clientes.show(5, truncate=False)
 
 print("Abrindo o dataframe de pedidos, deixando o Spark inferir o schema")
-# Para CSV, a inferência exige uma passagem extra sobre os dados (inferSchema=True)
 pedidos = spark.read.option("compression", "gzip") \
                     .option("header", "true") \
                     .option("inferSchema", "true") \
                     .option("sep", ";") \
-                    .csv("data/input/pedidos.gz")
+                    .csv("datasets-csv-pedidos/data/pedidos/")
 
 pedidos.printSchema()
 
@@ -335,6 +360,7 @@ spark-submit /tmp/schema-definido.py
 ```
 
 ---
+
 ### Definindo os schemas do projeto
 
 **1. Defina os Schemas com `StructType`:**
@@ -373,7 +399,7 @@ schema_pedidos = StructType([
 Substitua todo o conteúdo do `src/main.py` pela versão abaixo.
 
 ```python
-# src/main.py (Versão 2: Com Schema Explícito)
+# src/main.py
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.types import (StructType, StructField, StringType, LongType, 
@@ -391,7 +417,7 @@ schema_clientes = StructType([
     StructField("interesses", ArrayType(StringType()), True)
 ])
 print("Abrindo o dataframe de clientes")
-clientes = spark.read.option("compression", "gzip").json("data/input/clientes.gz", schema=schema_clientes)
+clientes = spark.read.option("compression", "gzip").json("dataset-json-clientes/data/clientes.json.gz", schema=schema_clientes)
 
 clientes.show(5, truncate=False)
 
@@ -407,7 +433,7 @@ schema_pedidos = StructType([
 ])
 
 print("Abrindo o dataframe de pedidos")
-pedidos = spark.read.option("compression", "gzip").csv("data/input/pedidos.gz", header=True, schema=schema_pedidos, sep=";")
+pedidos = spark.read.option("compression", "gzip").csv("datasets-csv-pedidos/data/pedidos/", header=True, schema=schema_pedidos, sep=";")
 
 print("Adicionando a coluna valor_total")
 pedidos = pedidos.withColumn("valor_total", F.col("valor_unitario") * F.col("quantidade"))
@@ -446,7 +472,7 @@ Nosso objetivo é evoluir de um simples script para uma aplicação PySpark bem 
     ├── __init__.py
     ├── config/
     │   ├── __init__.py
-    │   └── settings.py         # <-- Para centralizar os caminhos dos arquivos
+    │   └── settings.py         # <-- Para centralizar configurações do projeto
     ├── session/
     │   ├── __init__.py
     │   └── spark_session.py    # <-- Classe para gerenciar a sessão Spark
@@ -490,8 +516,8 @@ touch src/config/settings.py
 # src/config/settings.py
 
 # Caminhos para os dados de entrada (fontes)
-CLIENTES_PATH = "data/input/clientes.gz"
-PEDIDOS_PATH = "data/input/pedidos.gz"
+CLIENTES_PATH = "dataset-json-clientes/data/clientes.json.gz"
+PEDIDOS_PATH = "datasets-csv-pedidos/data/pedidos/"
 
 # Caminho para os dados de saída (destino)
 OUTPUT_PATH = "data/output/pedidos_por_cliente"
@@ -503,6 +529,7 @@ OUTPUT_PATH = "data/output/pedidos_por_cliente"
 - Importe o pacote config.settings:
   ```python
   from config.settings import CLIENTES_PATH, PEDIDOS_PATH, OUTPUT_PATH
+
   ```
 
 - Substitua os paths explícitos pelas respectivas variáveis
@@ -521,6 +548,8 @@ OUTPUT_PATH = "data/output/pedidos_por_cliente"
   ```python
   pedidos_clientes.write.mode("overwrite").parquet(OUTPUT_PATH)
   ```
+
+---
 
 ### Externalizando configurações
 Manter a configuração em um arquivo .py é bom, mas misturar código (Python) com dados de configuração puros não é o ideal. 
@@ -551,8 +580,8 @@ Ambientes de produção modernos usam formatos como YAML ou JSON, que são agnó
     app_name: "Analise de Pedidos"
 
   paths:
-    clientes: "data/input/clientes.gz"
-    pedidos: "data/input/pedidos.gz"
+    clientes: "dataset-json-clientes/data/clientes.json.gz"
+    pedidos: "datasets-csv-pedidos/data/pedidos/"
     output: "data/output/pedidos_por_cliente"
 
   file_options:
@@ -971,9 +1000,9 @@ Vamos promover algumas alterações pra que o nosso `main.py` fique mais limpo e
 
 ## O que ganhamos com esta nova estrutura?
 
--   **Organização Superior:** Cada parte da aplicação tem seu lugar. Se precisar alterar algo sobre a sessão Spark, você sabe que deve ir em `src/session`. Se a forma de ler um arquivo mudar, o lugar é `src/io_utils`.
+-   **Organização mais clara:** Cada parte da aplicação tem seu lugar. Se precisar alterar algo sobre a sessão Spark, você sabe que deve ir em `src/session`. Se a forma de ler um arquivo mudar, o lugar é `src/io_utils`.
 -   **Configuração Centralizada:** Mudar os caminhos dos arquivos de entrada ou saída agora é trivial e seguro, sem risco de quebrar a lógica da aplicação.
--   **Máxima Reutilização:** Cada componente (`DataHandler`, `Transformation`, `SparkSessionManager`) pode ser facilmente importado e reutilizado em outros projetos ou notebooks.
+-   **Reuso de Componentes:** Cada componente (`DataHandler`, `Transformation`, `SparkSessionManager`) pode ser facilmente importado e reutilizado em outros projetos ou notebooks.
 -   **Testabilidade Aprimorada:** A lógica de negócio em `Transformation` continua pura e fácil de testar. Agora, também podemos testar o `DataHandler` de forma isolada, se necessário.
 
 ---
