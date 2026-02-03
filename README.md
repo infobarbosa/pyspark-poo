@@ -7,20 +7,22 @@ Este repositório é um guia passo a passo para refatorar um script PySpark mono
 
 ## Sumário
 1. [Configuração Inicial](#configuração-inicial)
-2. [O Ponto de Partida: Script com Inferência de Schema](#o-ponto-de-partida)
-3. [Passo 1: A Importância de Definir Schemas Explícitos](#pass1-0-a-importância-de-definir-schemas-explícitos)
-4. [Planejamento](#planejamento)
+2. [Script Inicial (Monolítico)](#script-inicial)
+3. [Passo 1: Schemas Explícitos](#passo-1-schemas-explícitos)
+4. [Planejamento da Refatoração](#planejamento)
 5. [Passo 2: Centralizando as Configurações](#passo-2-centralizando-as-configurações)
 6. [Passo 3: Gerenciando a Sessão Spark](#passo-3-gerenciando-a-sessão-spark)
-7. [Passo 4: Unificando a Leitura e Escrita de Dados (I/O)](#passo-4-unificando-a-leitura-e-escrita-de-dados-io)
+7. [Passo 4: Pacote de Leitura e Escrita de Dados (I/O)](#passo-4-pacote-de-leitura-e-escrita-de-dados-io)
 8. [Passo 5: Isolando a Lógica de Negócio](#passo-5-isolando-a-lógica-de-negócio)
-9. [Passo 6: Orquestrando a Aplicação no `main.py`](#passo-6-orquestrando-a-aplicação-no-mainpy)
-10. [Passo 7: Aplicando Injeção de Dependências com uma Classe `Pipeline`](#passo-7-aplicando-injeção-de-dependências-com-uma-classe-pipeline)
-11. [Passo 8: Adicionando Logging e Tratamento de Erros](#passo-8-adicionando-logging-e-tratamento-de-erros)
-12. [Passo 9: Gerenciando Dependências com `requirements.txt`](#passo-9-gerenciando-dependências-com-requirementstxt)
-13. [Passo 10: Garantindo a Qualidade do Código com Linter e Formatador](#passo-10-garantindo-a-qualidade-do-código-com-linter-e-formatador)
-14. [Passo 11: Empacotando a Aplicação para Distribuição](#passo-11-empacotando-a-aplicação-para-distribuição)
-15. [Passo 12: Garantido a qualidade com testes](#passo-12-garantindo-a-qualidade-com-testes)
+9. [Passo 6: Refatoração de main.py](#passo-6-refatoração-de-mainpy)
+10. [Passo 7: Injeção de Dependências](#passo-7-injeção-de-dependências)
+11. [Passo 8: Logging](#passo-8-logging)
+12. [Passo 9: Tratamento de Erros](#passo-9-tratamento-de-erros)
+13. [Passo 10: Gestão de Dependências](#passo-10-gestão-de-dependências)
+14. [Passo 11: Qualidade do Código com Linter e Formatador](#passo-11-qualidade-do-código-com-linter-e-formatador)
+15. [Passo 12: Empacotamento da Aplicação para Distribuição](#passo-12-empacotamento-da-aplicação-para-distribuição)
+16. [Passo 13: Testes Automatizados](#passo-13-testes-automatizados)
+17. [Desafio Final](#desafio)
 
 ---
 
