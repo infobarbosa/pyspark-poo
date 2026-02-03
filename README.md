@@ -1233,7 +1233,7 @@ logger = logging.getLogger(__name__)
           logger.info("Pipeline concluído com sucesso!")
   ```
 
-## 9: Tratamento de Erros
+## Passo 9: Tratamento de Erros
 Ao trabalhar com processamento de dados em grande escala, é inevitável que nos deparemos com imprevistos, como dados ausentes ou malformados, falhas de conexão com fontes de dados ou erros de lógica em nossas transformações.
 Ignorar essas possíveis falhas pode levar à interrupção de pipelines, resultados incorretos e perda de tempo valioso.
 
