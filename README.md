@@ -620,6 +620,8 @@ touch ./data-engineering-pyspark/config/settings.yaml
 
   ```python
   app_name = config['spark']['app_name']
+  print(f"Obtido o app name: {app_name}")
+
   ```
 
 8. Utilize `app_name` para criar a sessão spark em `main.py`
@@ -632,6 +634,7 @@ touch ./data-engineering-pyspark/config/settings.yaml
 
   ```python
   path_clientes = config['paths']['clientes']
+  print(f"Obtido o path de clientes: {path_clientes}")
   clientes = spark.read.option("compression", "gzip").json(path_clientes, schema=schema_clientes)
   ```
 
@@ -643,6 +646,14 @@ touch ./data-engineering-pyspark/config/settings.yaml
   compression_pedidos = config['file_options']['pedidos_csv']['compression']
   header_pedidos = config['file_options']['pedidos_csv']['header']
   separator_pedidos = config['file_options']['pedidos_csv']['sep']
+
+  print(f"""
+  Obtidos os seguintes parâmetros de pedidos: 
+  - path: {path_pedidos}
+  - compression: {compression_pedidos}
+  - header: {header_pedidos}
+  - separator: {separator_pedidos}
+  """)
 
   pedidos = spark.read.option("compression", compression_pedidos).csv(path_pedidos, header=True, schema=schema_pedidos, sep=separator_pedidos)
   ```
