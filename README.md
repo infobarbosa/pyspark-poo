@@ -597,7 +597,7 @@ touch ./data-engineering-pyspark/config/settings.yaml
   # src/config/settings.py
   import yaml
 
-  def carregar_config(path: str = "config/settings.yaml") -> dict:
+  def carregar_config(path: str = "./data-engineering-pyspark/config/settings.yaml") -> dict:
       """Carrega um arquivo de configuração YAML."""
       with open(path, 'r') as file:
           return yaml.safe_load(file)
@@ -722,7 +722,7 @@ class SparkSessionManager:
 
 - Instanciando a sessão spark
   ```python
-  spark = SparkSessionManager.get_spark_session(app_name=app_name)
+  spark = SparkSessionManager.get_spark_session(name=app_name)
   
   ```
 ---
