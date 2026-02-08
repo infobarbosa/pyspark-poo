@@ -1077,8 +1077,7 @@ dh.write_parquet(df=pedidos_clientes, path=path_output)
 spark.stop()
 ```
 
-
-
+### Pontos de refatoração
 Vamos promover algumas alterações pra que o nosso `main.py` fique mais limpo e organizado.
 - Remoção de imports desnecessários
 - Nomes de variáveis mais claras 
@@ -1102,14 +1101,14 @@ def main():
 
   spark = SparkSessionManager.get_spark_session(app_name=app_name)
 
-  dh = DataHandler(spark)
+  data_handler = DataHandler(spark)
   transformer = Transformation()
 
   print("Abrindo o dataframe de clientes")
   path_clientes = config['paths']['clientes']
   print(f"Obtido o path de clientes: {path_clientes}")
-  clientes = dh.load_clientes(path = path_clientes)
-  clientes.show(5, truncate=False)
+  clientes_df = data_handler.load_clientes(path = path_clientes)
+  clientes_df.show(5, truncate=False)
 
   print("Abrindo o dataframe de pedidos")
   path_pedidos = config['paths']['pedidos']
@@ -1125,30 +1124,31 @@ def main():
   - separator: {separator_pedidos}
   """)
 
-  pedidos = dh.load_pedidos(path = path_pedidos, compression=compression_pedidos, header=header_pedidos, sep=separator_pedidos)
+  pedidos_df = data_handler.load_pedidos(path = path_pedidos, compression=compression_pedidos, header=header_pedidos, sep=separator_pedidos)
 
   print("Adicionando a coluna valor_total")
-  pedidos = transformer.add_valor_total_pedidos(pedidos)
-  pedidos.show(5, truncate=False)
+  pedidos_df = transformer.add_valor_total_pedidos(pedidos_df)
+  pedidos_df.show(5, truncate=False)
 
   print("Calculando o valor total de pedidos por cliente e filtrar os 10 maiores")
-  calculado = transformer.get_top_10_clientes(pedidos)
+  top_10_clientes_df = transformer.get_top_10_clientes(pedidos_df)
 
-  calculado.show(10, truncate=False)
+  top_10_clientes_df.show(10, truncate=False)
 
   print("Fazendo a junção dos dataframes")
-  pedidos_clientes = transformer.join_pedidos_clientes(calculado, clientes)
-  pedidos_clientes.show(20, truncate=False)
+  relatorio_top_10_cliente_df = transformer.join_pedidos_clientes(top_10_clientes_df, clientes_df)
+  relatorio_top_10_cliente_df.show(20, truncate=False)
 
   print("Escrevendo o resultado em parquet")
   path_output = config['paths']['output']
   print(f"Obtido o path de saída: {path_output}")
-  dh.write_parquet(df=pedidos_clientes, path=path_output)
+  data_handler.write_parquet(df=relatorio_top_10_cliente_df, path=path_output)
 
   spark.stop()
 
 if __name__ == "__main__":
   main()
+
 
 ```
 
@@ -1174,6 +1174,7 @@ ls -latr ./data-engineering-pyspark/data/output/pedidos_por_cliente/
 
 ```
 
+---
 
 ## O que ganhamos com esta nova estrutura?
 
