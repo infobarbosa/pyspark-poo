@@ -1422,148 +1422,164 @@ logger = logging.getLogger(__name__)
           logger.info("Pipeline concluído com sucesso!")
   ```
 
+---
+
 ## Passo 9: Tratamento de Erros
 Ao trabalhar com processamento de dados em grande escala, é inevitável que nos deparemos com imprevistos, como dados ausentes ou malformados, falhas de conexão com fontes de dados ou erros de lógica em nossas transformações.
 Ignorar essas possíveis falhas pode levar à interrupção de pipelines, resultados incorretos e perda de tempo valioso.
 
-1. Tratamento de erros em `data_handler.py`:
+### Cenário 1: Integridade dos Dados (Read Modes)
 
-O `DataHandler` pode gerar erros durante a leitura de arquivos. Vamos adicionar um bloco `try...except`**
-  - Importando o pacote
-  
-    ```python
-    from pyspark.errors import AnalysisException 
-    ```
+O Spark, por padrão, é "permissivo". Se você definir que uma coluna é `Integer` mas chegar um texto "abc", o Spark converte silenciosamente para `null`. Em sistemas financeiros ou críticos, isso é inaceitável. Queremos que o processo falhe imediatamente (`FAILFAST`) se o dado estiver sujo.
 
-  - Adicionalmente vamos precisar do pacote `logging` também:
-    ```python
-    import logging
+Vamos alterar o `src/io_utils/data_handler.py`.
 
-    ```
+**1. Ajuste o método `load_pedidos`:**
+Adicione a opção `.option("mode", "FAILFAST")`.
 
-  - Adicione a configuração do logging:
-    ```python
-    # Configuração centralizada do logging
-    logger = logging.getLogger(__name__)
-
-    ```
-
-  - Substituindo o trecho de código que carrega os dados de **pedidos** por:
-    
-    ```python
+```python
     # src/io_utils/data_handler.py
-    def load_pedidos(self, path: str) -> DataFrame:
-        """Carrega o dataframe de pedidos a partir de um arquivo CSV."""
+    # ...
+    def load_pedidos(self, path: str, compression: str, header:bool, sep:str) -> DataFrame:
+        """Carrega o dataframe de pedidos com modo FAILFAST."""
         schema = self._get_schema_pedidos()
+        return self.spark.read \
+            .option("compression", compression) \
+            .option("mode", "FAILFAST") \
+            .csv(path, header=header, schema=schema, sep=sep)
+    # ...
+
+```
+
+### Cenário 2: Arquivos Vazios ou Inexistentes
+
+Às vezes o arquivo existe, mas está vazio (0 bytes ou apenas cabeçalho). Processar um dataframe vazio pode gerar erros em etapas seguintes ou relatórios em branco sem aviso prévio. Além disso, se o arquivo não existir, o Spark lança uma `AnalysisException`.
+
+Vamos capturar esse erro e verificar se o dataframe tem dados.
+
+**1. Inclua os imports necessários em `src/io_utils/data_handler.py`:**
+Precisamos importar a exceção do Spark e o módulo de logging.
+
+```python
+# src/io_utils/data_handler.py
+import logging
+from pyspark.sql import SparkSession, DataFrame
+from pyspark.sql.utils import AnalysisException # <-- Importante
+# ... imports de types ...
+
+logger = logging.getLogger(__name__) # <-- Inicializa o logger
+
+```
+
+**2. Ajuste o método `load_pedidos` com try/except e verificação de vazio:**
+
+```python
+    # src/io_utils/data_handler.py
+    # ...
+    def load_pedidos(self, path: str, compression: str, header:bool, sep:str) -> DataFrame:
         try:
-            return self.spark.read.option("compression", "gzip").csv(path, header=True, schema=schema, sep=";")
+            schema = self._get_schema_pedidos()
+            df = self.spark.read \
+                .option("compression", compression) \
+                .option("mode", "FAILFAST") \
+                .csv(path, header=header, schema=schema, sep=sep)
+            
+            # Verificação de Dataframe Vazio
+            if df.isEmpty():
+                logger.warning(f"ATENÇÃO: O arquivo em '{path}' foi lido mas não contém registros.")
+            
+            return df
+
         except AnalysisException as e:
-            if "PATH_NOT_FOUND" in str(e):
-                logger.error(f"Arquivo não encontrado: {path}")
+            logger.error(f"Erro ao ler arquivo: {e}")
+            raise e # Relança o erro para parar o pipeline
 
-            raise Exception(f"Erro ao carregar pedidos: {e}")
-    ```
+```
 
-2. Tratamento de erros em `pipeline.py`:
-  - Substitua o trecho `pedidos_df = self.data_handler...` por:
-    ```python
+### Cenário 3: Erros da JVM (Java Virtual Machine)
+
+Como o PySpark roda em cima da JVM (Java), alguns erros críticos (como falta de memória ou arquivo corrompido fisicamente) chegam como `Py4JJavaError`. Se não tratarmos isso, o log fica ilegível para quem só sabe Python.
+
+**1. Inclua o import do Py4J em `src/io_utils/data_handler.py`:**
+
+```python
+# src/io_utils/data_handler.py
+import logging
+from py4j.protocol import Py4JJavaError # <-- Importante para erros da JVM
+from pyspark.sql import SparkSession, DataFrame
+from pyspark.sql.utils import AnalysisException
+# ...
+
+```
+
+**2. Adicione o novo bloco `except` ao método `load_pedidos`:**
+
+```python
+    # src/io_utils/data_handler.py
+    # ... dentro do load_pedidos ...
+        except AnalysisException as e:
+            logger.error(f"Erro de IO/Spark: {e}")
+            raise e
+        
+        except Py4JJavaError as e:
+            logger.critical(f"Erro Crítico na JVM (possível arquivo corrompido ou erro de memória): {e}")
+            raise e
+
+```
+
+### Cenário 4: Blindando `main.py`
+
+Agora que nosso `DataHandler` sabe reportar quando algo dá errado, precisamos garantir que o nosso `main.py` saiba lidar com isso.
+
+**1. Atualize o `src/main.py` para capturar falhas no pipeline:**
+
+```python
+# src/main.py
+# ... imports ...
+
+def main():
+    # ... carregamento de config ...
+    
+    spark = None # Inicializa como None para segurança no finally
     try:
-        pedidos_df = self.data_handler.load_pedidos(settings.PEDIDOS_PATH)
+        spark = SparkSessionManager.get_spark_session(app_name=app_name)
+        pipeline = Pipeline(spark)
+        pipeline.run(config=config)
+
     except Exception as e:
-        logger.error(f"Problemas ao carregar dados de pedidos: {e}")
-        return  # Interrompe o pipeline se os pedidos não puderem ser carregados
+        logging.error(f"FALHA CRÍTICA NO PIPELINE: {e}")
+        # Aqui poderíamos adicionar envio de notificação (Slack, Email, PagerDuty)
+        
+    finally:
+        if spark:
+            spark.stop()
+            logging.info("Sessão Spark finalizada.")
 
-    ```
-
-3. Tratamento de Erros em `main.py`:
-
-O ponto de entrada da nossa aplicação (`main.py`) é o lugar ideal para capturar qualquer erro que possa ocorrer durante a execução do pipeline. Vamos envolver a chamada `pipeline.run()` em um bloco `try...except`.
-
-Atualize o `src/main.py` da seguinte forma:
-
-  ```python
-  # src/main.py
-  from config.settings import carregar_config
-  from session.spark_session import SparkSessionManager
-  from pipeline.pipeline import Pipeline
-  import logging
-
-  # Crie a configuração do logging
-  def configurar_logging():
-    """Configura o logging para todo o projeto."""
-    logging.basicConfig(
-        # Nível mínimo de severidade para ser registrado.
-        # DEBUG < INFO < WARNING < ERROR < CRITICAL
-        level=logging.INFO,
-
-        # Formato da mensagem de log.
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S',
-
-        # Lista de handlers. Aqui, estamos logando para um arquivo e para o console.
-        handlers=[
-            logging.FileHandler("dataeng-pyspark-poo.log"), # Log para arquivo
-            logging.StreamHandler()                         # Log para o console (terminal)
-        ]
-    )
-    logging.info("Logging configurado.")
-
-  def main():
-      """
-      Função principal que atua como a "Raiz de Composição".
-      Configura e executa o pipeline.
-      """
-      config = carregar_config()
-      app_name = config['spark']['app_name']
-
-      spark = None
-      try:
-          # 1. Inicialização da sessão Spark
-          spark = SparkSessionManager.get_spark_session(app_name=app_name)
-          
-          # 2. Injeção de Dependência e Execução
-          # A sessão Spark é "injetada" na criação do pipeline
-          pipeline = Pipeline(spark)
-          pipeline.run(config=config)
-      except Exception as e:
-          logging.error(f"Ocorreu um erro inesperado na execução do programa: {e}")
-      finally:
-          if spark:
-              # 3. Finalização
-              spark.stop()
-              logging.info("Sessão Spark finalizada.")    
-      
-  if __name__ == "__main__":
-      configurar_logging()
-      main()
-
-
-  ```
-
-4. Testando:
-
-- Altere o caminho do dataset de pedidos em `config/settings.py`:
-```
-PEDIDOS_PATH = "./CAMINHO-INVALIDO/"
+if __name__ == "__main__":
+    configurar_logging()
+    main()
 
 ```
 
-- Execute a aplicação:
+### Testando os Erros
 
-```bash
-spark-submit ./data-engineering-pyspark/src/main.py
+Para ver isso funcionando, vamos quebrar nossa aplicação de propósito.
+
+1. **Teste de Arquivo Inexistente:**
+Abra o arquivo `config/settings.yaml` e altere o parâmetro `PEDIDOS_PATH` para apontar para um arquivo que não existe.
+```yaml
+PEDIDOS_PATH = "./PATH-INVALIDO/data/input/datasets-csv-pedidos/data/pedidos"
 
 ```
 
-- Verifique a mensagem de erro
+*Observe o log de erro tratado.*
 
-- Para voltar o arquivo original, execute:
+
+2. Para voltar a configuração original, faça o ajuste em `config/settings.yaml`:
 ```
 PEDIDOS_PATH = "./data-engineering-pyspark/data/input/datasets-csv-pedidos/data/pedidos/"
 
 ```
-
-
 
 #### Conclusão
 
