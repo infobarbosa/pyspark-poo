@@ -722,7 +722,7 @@ class SparkSessionManager:
 
 - Instanciando a sessão spark
   ```python
-  spark = SparkSessionManager.get_spark_session(name=app_name)
+  spark = SparkSessionManager.get_spark_session(app_name=app_name)
   
   ```
 ---
