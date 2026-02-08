@@ -579,9 +579,9 @@ touch ./data-engineering-pyspark/config/settings.yaml
     app_name: "Analise de Pedidos"
 
   paths:
-    clientes: "dataset-json-clientes/data/clientes.json.gz"
-    pedidos: "datasets-csv-pedidos/data/pedidos/"
-    output: "data/output/pedidos_por_cliente"
+    clientes: "./data-engineering-pyspark/data/input/dataset-json-clientes/data/clientes.json.gz"
+    pedidos: "./data-engineering-pyspark/data/input/datasets-csv-pedidos/data/pedidos/"
+    output: "./data-engineering-pyspark/data/output/pedidos_por_cliente"
 
   file_options:
     pedidos_csv:
