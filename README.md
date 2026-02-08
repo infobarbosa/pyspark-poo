@@ -42,19 +42,14 @@ mkdir -p data-engineering-pyspark/data/output
 
 ```
 
-```bash
-cd data-engineering-pyspark
-
-```
-
 2.  **Crie um ambiente virtual e instale as dependências:**
 ```bash
-python3 -m venv .venv
+python3 -m venv data-engineering-pyspark/.venv
 
 ```
 
 ```bash
-source .venv/bin/activate
+source ./data-engineering-pyspark/.venv/bin/activate
 
 ```
 
@@ -68,12 +63,12 @@ Faça o clone dos repositórios:
 
 * Clientes
 ```sh
-git clone https://github.com/infobarbosa/dataset-json-clientes ./data/input/dataset-json-clientes
+git clone https://github.com/infobarbosa/dataset-json-clientes ./data-engineering-pyspark/data/input/dataset-json-clientes
 
 ```
 
 ```sh
-zcat ./data/input/dataset-json-clientes/data/clientes.json.gz | head -5
+zcat ./data-engineering-pyspark/data/input/dataset-json-clientes/data/clientes.json.gz | head -5
 
 ```
 
@@ -89,12 +84,12 @@ Output esperado:
 
 * Pedidos
 ```sh
-git clone https://github.com/infobarbosa/datasets-csv-pedidos ./data/input/datasets-csv-pedidos
+git clone https://github.com/infobarbosa/datasets-csv-pedidos ./data-engineering-pyspark/data/input/datasets-csv-pedidos
 
 ```
 
 ```sh
-zcat ./data/input/datasets-csv-pedidos/data/pedidos/pedidos-2026-01.csv.gz | head -5
+zcat ./data-engineering-pyspark/data/input/datasets-csv-pedidos/data/pedidos/pedidos-2026-01.csv.gz | head -5
 
 ```
 
@@ -109,12 +104,12 @@ f1db6c7e-0701-42fd-90b2-638b57cefe38;NOTEBOOK;1500.0;2;2026-01-17T15:28:57;MG;58
 
 * Pagamentos
 ```sh
-git clone https://github.com/infobarbosa/dataset-json-pagamentos ./data/input/dataset-json-pagamentos
+git clone https://github.com/infobarbosa/dataset-json-pagamentos ./data-engineering-pyspark/data/input/dataset-json-pagamentos
 
 ```
 
 ```sh
-zcat ./data/input/dataset-json-pagamentos/data/pagamentos/pagamentos-2026-01.json.gz | head -5
+zcat ./data-engineering-pyspark/data/input/dataset-json-pagamentos/data/pagamentos/pagamentos-2026-01.json.gz | head -5
 
 ```
 
@@ -133,7 +128,7 @@ Output esperado:
 
 Vamos começar com um script monolítico. 
 ```bash
-touch src/main.py
+touch ./data-engineering-pyspark/src/main.py
 
 ```
 
@@ -148,7 +143,7 @@ print("Abrindo a sessao spark")
 spark = SparkSession.builder.appName("Analise de Pedidos").getOrCreate()
 
 print("Abrindo o dataframe de clientes, deixando o Spark inferir o schema")
-clientes = spark.read.option("compression", "gzip").json("./data/input/dataset-json-clientes/data/clientes.json.gz")
+clientes = spark.read.option("compression", "gzip").json("./data-engineering-pyspark/data/input/dataset-json-clientes/data/clientes.json.gz")
 
 clientes.printSchema()
 clientes.show(5, truncate=False)
@@ -158,7 +153,7 @@ pedidos = spark.read.option("compression", "gzip") \
                     .option("header", "true") \
                     .option("inferSchema", "true") \
                     .option("sep", ";") \
-                    .csv("./data/input/datasets-csv-pedidos/data/pedidos/")
+                    .csv("./data-engineering-pyspark/data/input/datasets-csv-pedidos/data/pedidos/")
 
 pedidos.printSchema()
 
@@ -178,14 +173,14 @@ pedidos_clientes = calculado.join(clientes, clientes.id == calculado.id_cliente,
 
 pedidos_clientes.show(20, truncate=False)
 
-pedidos_clientes.write.mode("overwrite").parquet("./data/output/pedidos_por_cliente")
+pedidos_clientes.write.mode("overwrite").parquet("./data-engineering-pyspark/data/output/pedidos_por_cliente")
 
 spark.stop()
 ```
 
 Agora execute:
 ```bash
-spark-submit src/main.py
+spark-submit ./data-engineering-pyspark/src/main.py
 
 ```
 
@@ -421,7 +416,7 @@ schema_clientes = StructType([
     StructField("interesses", ArrayType(StringType()), True)
 ])
 print("Abrindo o dataframe de clientes")
-clientes = spark.read.option("compression", "gzip").json("./data/input/dataset-json-clientes/data/clientes.json.gz", schema=schema_clientes)
+clientes = spark.read.option("compression", "gzip").json("./data-engineering-pyspark/data/input/dataset-json-clientes/data/clientes.json.gz", schema=schema_clientes)
 
 clientes.show(5, truncate=False)
 
@@ -437,7 +432,7 @@ schema_pedidos = StructType([
 ])
 
 print("Abrindo o dataframe de pedidos")
-pedidos = spark.read.option("compression", "gzip").csv("./data/input/datasets-csv-pedidos/data/pedidos/", header=True, schema=schema_pedidos, sep=";")
+pedidos = spark.read.option("compression", "gzip").csv("./data-engineering-pyspark/data/input/datasets-csv-pedidos/data/pedidos/", header=True, schema=schema_pedidos, sep=";")
 
 print("Adicionando a coluna valor_total")
 pedidos = pedidos.withColumn("valor_total", F.col("valor_unitario") * F.col("quantidade"))
@@ -458,7 +453,7 @@ pedidos_clientes = calculado.join(clientes, clientes.id == calculado.id_cliente,
 pedidos_clientes.show(20, truncate=False)
 
 print("Escrevendo o resultado em parquet")
-pedidos_clientes.write.mode("overwrite").parquet("./data/output/pedidos_por_cliente")
+pedidos_clientes.write.mode("overwrite").parquet("./data-engineering-pyspark/data/output/pedidos_por_cliente")
 
 spark.stop()
 ```
@@ -520,11 +515,11 @@ touch src/config/settings.py
 # src/config/settings.py
 
 # Caminhos para os dados de entrada (fontes)
-CLIENTES_PATH = "dataset-json-clientes/data/clientes.json.gz"
-PEDIDOS_PATH = "datasets-csv-pedidos/data/pedidos/"
+CLIENTES_PATH = "./data-engineering-pyspark/data/input/dataset-json-clientes/data/clientes.json.gz"
+PEDIDOS_PATH = "./data-engineering-pyspark/data/input/datasets-csv-pedidos/data/pedidos/"
 
 # Caminho para os dados de saída (destino)
-OUTPUT_PATH = "data/output/pedidos_por_cliente"
+OUTPUT_PATH = "./data-engineering-pyspark/data/output/pedidos_por_cliente"
 ```
 
 ---
