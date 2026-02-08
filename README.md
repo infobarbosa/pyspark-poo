@@ -215,6 +215,18 @@ parquet-tools show ./data-engineering-pyspark/data/output/pedidos_por_cliente
 
 ```
 
+```sh
+ls ./data-engineering-pyspark/data/output/pedidos_por_cliente/
+
+```
+
+O comando abaixo inspeciona o arquivo e retorna seus metadados:
+```sh
+parquet-tools inspect ./data-engineering-pyspark/data/output/pedidos_por_cliente/*.parquet
+
+```
+
+
 ---
 
 ## Passo 1: Schemas Explícitos
@@ -961,6 +973,111 @@ Esta classe contém as regras de negócio puras, que transformam um DataFrame de
 ---
 
 ## Passo 6: Refatoração de `main.py`
+Nesse momento nosso script `main.py` está bastante sujo. As linhas comentadas é tudo que mexemos até aqui mas que não precisamos mais.
+```python
+# src/main.py
+from pyspark.sql import SparkSession
+# from pyspark.sql import functions as F
+# from pyspark.sql.types import (StructType, StructField, StringType, LongType, ArrayType, DateType, FloatType, TimestampType)
+# from config.settings import CLIENTES_PATH, PEDIDOS_PATH, OUTPUT_PATH
+from config.settings import carregar_config
+from session.spark_session import SparkSessionManager
+from io_utils.data_handler import DataHandler
+from processing.transformations import Transformation
+
+config = carregar_config()
+app_name = config['spark']['app_name']
+print(f"Obtido o app name: {app_name}")
+
+# spark = SparkSession.builder.appName("Analise de Pedidos").getOrCreate()
+# spark = SparkSession.builder.appName(app_name).getOrCreate()
+spark = SparkSessionManager.get_spark_session(app_name=app_name)
+
+dh = DataHandler(spark)
+transformer = Transformation()
+
+# print("Definindo schema do dataframe de clientes")
+# schema_clientes = StructType([
+#     StructField("id", LongType(), True),
+#     StructField("nome", StringType(), True),
+#     StructField("data_nasc", DateType(), True),
+#     StructField("cpf", StringType(), True),
+#     StructField("email", StringType(), True),
+#     StructField("interesses", ArrayType(StringType()), True)
+# ])
+print("Abrindo o dataframe de clientes")
+# clientes = spark.read.option("compression", "gzip").json("./data-engineering-pyspark/data/input/dataset-json-clientes/data/clientes.json.gz", schema=schema_clientes)
+# clientes = spark.read.option("compression", "gzip").json(CLIENTES_PATH, schema=schema_clientes)
+path_clientes = config['paths']['clientes']
+print(f"Obtido o path de clientes: {path_clientes}")
+# clientes = spark.read.option("compression", "gzip").json(path_clientes, schema=schema_clientes)
+clientes = dh.load_clientes(path = path_clientes)
+
+clientes.show(5, truncate=False)
+
+# print("Definindo schema do dataframe de pedidos")
+# schema_pedidos = StructType([
+#     StructField("id_pedido", StringType(), True),
+#     StructField("produto", StringType(), True),
+#     StructField("valor_unitario", FloatType(), True),
+#     StructField("quantidade", LongType(), True),
+#     StructField("data_criacao", TimestampType(), True),
+#     StructField("uf", StringType(), True),
+#     StructField("id_cliente", LongType(), True)
+# ])
+
+print("Abrindo o dataframe de pedidos")
+# pedidos = spark.read.option("compression", "gzip").csv("./data-engineering-pyspark/data/input/datasets-csv-pedidos/data/pedidos/", header=True, schema=schema_pedidos, sep=";")
+# pedidos = spark.read.option("compression", "gzip").csv(PEDIDOS_PATH, header=True, schema=schema_pedidos, sep=";")
+
+path_pedidos = config['paths']['pedidos']
+compression_pedidos = config['file_options']['pedidos_csv']['compression']
+header_pedidos = config['file_options']['pedidos_csv']['header']
+separator_pedidos = config['file_options']['pedidos_csv']['sep']
+
+print(f"""
+Obtidos os seguintes parâmetros de pedidos: 
+- path: {path_pedidos}
+- compression: {compression_pedidos}
+- header: {header_pedidos}
+- separator: {separator_pedidos}
+""")
+
+# pedidos = spark.read.option("compression", compression_pedidos).csv(path_pedidos, header=True, schema=schema_pedidos, sep=separator_pedidos)
+pedidos = dh.load_pedidos(path = path_pedidos, compression=compression_pedidos, header=header_pedidos, sep=separator_pedidos)
+
+print("Adicionando a coluna valor_total")
+# pedidos = pedidos.withColumn("valor_total", F.col("valor_unitario") * F.col("quantidade"))
+pedidos = transformer.add_valor_total_pedidos(pedidos)
+pedidos.show(5, truncate=False)
+
+print("Calculando o valor total de pedidos por cliente e filtrar os 10 maiores")
+# calculado = pedidos.groupBy("id_cliente") \
+#     .agg(F.sum("valor_total").alias("valor_total")) \
+#     .orderBy(F.desc("valor_total")) \
+#     .limit(10)
+calculado = transformer.get_top_10_clientes(pedidos)
+
+calculado.show(10, truncate=False)
+
+print("Fazendo a junção dos dataframes")
+# pedidos_clientes = calculado.join(clientes, clientes.id == calculado.id_cliente, "inner") \
+    # .select(calculado.id_cliente, clientes.nome, clientes.email, calculado.valor_total)
+pedidos_clientes = transformer.join_pedidos_clientes(calculado, clientes)
+pedidos_clientes.show(20, truncate=False)
+
+print("Escrevendo o resultado em parquet")
+# pedidos_clientes.write.mode("overwrite").parquet("./data-engineering-pyspark/data/output/pedidos_por_cliente")
+# pedidos_clientes.write.mode("overwrite").parquet(OUTPUT_PATH)
+path_output = config['paths']['output']
+print(f"Obtido o path de saída: {path_output}")
+#pedidos_clientes.write.mode("overwrite").parquet(path_output)
+dh.write_parquet(df=pedidos_clientes, path=path_output)
+
+spark.stop()
+```
+
+
 
 Vamos promover algumas alterações pra que o nosso `main.py` fique mais limpo e organizado.
 - Remoção de imports desnecessários
@@ -1027,6 +1144,12 @@ Vamos promover algumas alterações pra que o nosso `main.py` fique mais limpo e
 2. Faça o teste:
 ```sh
 spark-submit ./data-engineering-pyspark/src/main.py
+
+```
+
+3. Conferindo o arquivo parquet:
+```sh
+parquet-tools show ./data-engineering-pyspark/data/output/pedidos_por_cliente
 
 ```
 
