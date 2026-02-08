@@ -1382,7 +1382,7 @@ logger = logging.getLogger(__name__)
 
   ```
 
-3. Na função `main()` inclua a chamada a `configurar_logging()`:
+3. Antes de chamar a função `main()`, chame `configurar_logging()`:
 
   ```python
   if __name__ == "__main__":
@@ -1391,7 +1391,15 @@ logger = logging.getLogger(__name__)
 
   ```
 
-4. Em todas as classes, adicione a configuração do logger no início do arquivo e substitua todos os `print()` por chamadas ao `logging`.<br>
+4. Agora que o *Root Logger* está configurado, crie um `logger` local em `main()`:
+
+Essa será a primeira linha do método `main()`.
+```python
+logger = logging.getLogger(__name__)
+
+```
+
+5. Em todas as classes, adicione a configuração do logger no início do arquivo e substitua todos os `print()` por chamadas ao `logging`.<br>
 
   Abaixo está um exemplo na classe `src/pipeline.py`:
 
