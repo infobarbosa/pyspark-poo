@@ -1216,60 +1216,71 @@ Este arquivo irá abrigar nossa nova classe orquestradora.
 
 A classe `Pipeline` receberá a sessão Spark como uma dependência em seu construtor. Ela então usará essa sessão para inicializar seus próprios componentes, como o `DataHandler`.
 
-  ```python
-  # src/pipeline/pipeline.py
-  from pyspark.sql import SparkSession
-  from io_utils.data_handler import DataHandler
-  from processing.transformations import Transformation
-  import config.settings as settings
+```python
+# src/pipeline/pipeline.py
+from pyspark.sql import SparkSession
+from io_utils.data_handler import DataHandler
+from processing.transformations import Transformation
+import config.settings as settings
 
-  class Pipeline:
-      """
-      Encapsula a lógica de execução do pipeline de dados.
-      """
-      def __init__(self, spark: SparkSession):
-          self.spark = spark
-          self.data_handler = DataHandler(self.spark)
-          self.transformer = Transformation()
-
-      def run(self, config):
-          """
-          Executa o pipeline completo: carga, transformação, e salvamento.
-          """
-          print("Pipeline iniciado...")
-
-          print("Abrindo o dataframe de clientes")
-          path_clientes = config['paths']['clientes']
-          clientes_df = self.data_handler.load_clientes(path = path_clientes)
-          
-          clientes_df.show(5, truncate=False)
-          
-          print("Abrindo o dataframe de pedidos")
-          path_pedidos = config['paths']['pedidos']
-          compression_pedidos = config['file_options']['pedidos_csv']['compression']
-          header_pedidos = config['file_options']['pedidos_csv']['header']
-          separator_pedidos = config['file_options']['pedidos_csv']['sep']
-          pedidos_df = self.data_handler.load_pedidos(path = path_pedidos, compression=compression_pedidos, header=header_pedidos, sep=separator_pedidos)
-          
-          print("Adicionando a coluna valor_total")
-          pedidos_com_valor_total_df = self.transformer.add_valor_total_pedidos(pedidos_df)
-          pedidos_com_valor_total_df.show(5, truncate=False)
-          
-          print("Calculando o valor total de pedidos por cliente e filtrar os 10 maiores")
-          top_10_clientes_df = self.transformer.get_top_10_clientes(pedidos_com_valor_total_df)
-          
-          top_10_clientes_df.show(10, truncate=False)
-          
-          print("Fazendo a junção dos dataframes")
-          resultado_final_df = self.transformer.join_pedidos_clientes(top_10_clientes_df, clientes_df)
-          
-          resultado_final_df.show(20, truncate=False)
-          
-          print("Escrevendo o resultado em parquet")
-          path_output = config['paths']['output']
-          self.data_handler.write_parquet(df=resultado_final_df, path=path_output)
+class Pipeline:
+    """
+    Encapsula a lógica de execução do pipeline de dados.
+    """
+    def __init__(self, spark: SparkSession):
+        self.spark = spark
+        self.data_handler = DataHandler(self.spark)
+        self.transformer = Transformation()
+    
+    def run(self, config):
+        """
+        Executa o pipeline completo: carga, transformação, e salvamento.
+        """
+        print("Pipeline iniciado...")        
         
-  ```
+        print("Abrindo o dataframe de clientes")
+        path_clientes = config['paths']['clientes']
+        print(f"Obtido o path de clientes: {path_clientes}")
+        clientes_df = self.data_handler.load_clientes(path = path_clientes)
+        clientes_df.show(5, truncate=False)
+        
+        print("Abrindo o dataframe de pedidos")
+        path_pedidos = config['paths']['pedidos']
+        compression_pedidos = config['file_options']['pedidos_csv']['compression']
+        header_pedidos = config['file_options']['pedidos_csv']['header']
+        separator_pedidos = config['file_options']['pedidos_csv']['sep']
+        
+        print(f"""
+        Obtidos os seguintes parâmetros de pedidos: 
+        - path: {path_pedidos}
+        - compression: {compression_pedidos}
+        - header: {header_pedidos}
+        - separator: {separator_pedidos}
+        """)
+        
+        pedidos_df = self.data_handler.load_pedidos(path = path_pedidos, compression=compression_pedidos, header=header_pedidos, sep=separator_pedidos)
+        
+        print("Adicionando a coluna valor_total")
+        pedidos_df = self.transformer.add_valor_total_pedidos(pedidos_df)
+        pedidos_df.show(5, truncate=False)
+        
+        print("Calculando o valor total de pedidos por cliente e filtrar os 10 maiores")
+        top_10_clientes_df = self.transformer.get_top_10_clientes(pedidos_df)
+        
+        top_10_clientes_df.show(10, truncate=False)
+        
+        print("Fazendo a junção dos dataframes")
+        relatorio_top_10_cliente_df = self.transformer.join_pedidos_clientes(top_10_clientes_df, clientes_df)
+        relatorio_top_10_cliente_df.show(20, truncate=False)
+        
+        print("Escrevendo o resultado em parquet")
+        path_output = config['paths']['output']
+        print(f"Obtido o path de saída: {path_output}")
+        self.data_handler.write_parquet(df=relatorio_top_10_cliente_df, path=path_output)
+
+        print("Pipeline concluído com sucesso!")
+      
+```
 
 3. Refatore o `src/main.py` para ser a Raiz de Composição:
 
@@ -1277,36 +1288,32 @@ Agora, o `main.py` fica muito mais limpo. Sua única responsabilidade é inicial
 
 Substitua todo o conteúdo do `src/main.py` por este código:
 
-  ```python
-  # src/main.py
-  from config.settings import carregar_config
-  from session.spark_session import SparkSessionManager
-  from pipeline.pipeline import Pipeline
+```python
+# src/main.py
+from config.settings import carregar_config
+from session.spark_session import SparkSessionManager
+from pipeline.pipeline import Pipeline
 
-  def main():
-      """
-      Função principal que atua como a "Raiz de Composição".
-      Configura e executa o pipeline.
-      """
-      config = carregar_config()
-      app_name = config['spark']['app_name']
-      
-      # 1. Inicialização da sessão Spark
-      spark = SparkSessionManager.get_spark_session(app_name=app_name)
-      
-      # 2. Injeção de Dependência e Execução
-      # A sessão Spark é "injetada" na criação do pipeline
-      pipeline = Pipeline(spark)
-      pipeline.run(config=config)
-      
-      # 3. Finalização
-      spark.stop()
+def main():
+  
+  config = carregar_config()
+  app_name = config['spark']['app_name']
+  print(f"Obtido o app name: {app_name}")
 
-  if __name__ == "__main__":
-      main()
+  spark = SparkSessionManager.get_spark_session(app_name=app_name)
+
+  # Injeção de Dependência e Execução
+  # A sessão Spark é "injetada" na criação do pipeline
+  pipeline = Pipeline(spark)
+  pipeline.run(config=config)
 
 
-  ```
+  spark.stop()
+
+if __name__ == "__main__":
+  main()
+
+```
 
 4. Faça o teste:
 
@@ -1315,13 +1322,11 @@ spark-submit ./data-engineering-pyspark/src/main.py
 
 ```
 
-### O Grande Ganho: Testabilidade
+### Ingestão de dependencias e a problemática da **testabilidade**
 
 Por que fizemos tudo isso? **Para facilitar os testes.**
 
 Imagine que você queira testar a classe `Pipeline` sem ler arquivos reais do disco. Com a injeção de dependências, você poderia criar um `DataHandler` "falso" (um *mock*) que retorna DataFrames de teste pré-definidos e injetá-lo no `Pipeline`. O `Pipeline` executaria sua lógica sem saber que está usando dados falsos, permitindo que você verifique o resultado de forma rápida e isolada.
-
-Este design nos prepara para o próximo nível de maturidade de software: **testes automatizados**.
 
 ---
 
