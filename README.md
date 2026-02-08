@@ -563,12 +563,12 @@ pip install pyyaml
 
 2. Crie um arquivo `config/settings.yaml`:
 ```sh
-mkdir ./data-engineering-pyspark/src/config
+mkdir ./data-engineering-pyspark/config
 
 ```
 
 ```bash
-touch ./data-engineering-pyspark/src/onfig/settings.yaml
+touch ./data-engineering-pyspark/config/settings.yaml
 
 ```
 
