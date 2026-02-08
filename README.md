@@ -421,7 +421,7 @@ schema_clientes = StructType([
     StructField("interesses", ArrayType(StringType()), True)
 ])
 print("Abrindo o dataframe de clientes")
-clientes = spark.read.option("compression", "gzip").json("dataset-json-clientes/data/clientes.json.gz", schema=schema_clientes)
+clientes = spark.read.option("compression", "gzip").json("./data/input/dataset-json-clientes/data/clientes.json.gz", schema=schema_clientes)
 
 clientes.show(5, truncate=False)
 
@@ -437,7 +437,7 @@ schema_pedidos = StructType([
 ])
 
 print("Abrindo o dataframe de pedidos")
-pedidos = spark.read.option("compression", "gzip").csv("datasets-csv-pedidos/data/pedidos/", header=True, schema=schema_pedidos, sep=";")
+pedidos = spark.read.option("compression", "gzip").csv("./data/input/datasets-csv-pedidos/data/pedidos/", header=True, schema=schema_pedidos, sep=";")
 
 print("Adicionando a coluna valor_total")
 pedidos = pedidos.withColumn("valor_total", F.col("valor_unitario") * F.col("quantidade"))
@@ -458,7 +458,7 @@ pedidos_clientes = calculado.join(clientes, clientes.id == calculado.id_cliente,
 pedidos_clientes.show(20, truncate=False)
 
 print("Escrevendo o resultado em parquet")
-pedidos_clientes.write.mode("overwrite").parquet("data/output/pedidos_por_cliente")
+pedidos_clientes.write.mode("overwrite").parquet("./data/output/pedidos_por_cliente")
 
 spark.stop()
 ```
