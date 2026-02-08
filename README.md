@@ -828,6 +828,7 @@ touch ./data-engineering-pyspark/src/io_utils/data_handler.py
   ```python
   print("Abrindo o dataframe de clientes")
   path_clientes = config['paths']['clientes']
+  print(f"Obtido o path de clientes: {path_clientes}")
   clientes = dh.load_clientes(path = path_clientes)
 
   ```
@@ -838,6 +839,13 @@ touch ./data-engineering-pyspark/src/io_utils/data_handler.py
   compression_pedidos = config['file_options']['pedidos_csv']['compression']
   header_pedidos = config['file_options']['pedidos_csv']['header']
   separator_pedidos = config['file_options']['pedidos_csv']['sep']
+  print(f"""
+  Obtidos os seguintes parâmetros de pedidos: 
+  - path: {path_pedidos}
+  - compression_pedidos: {compression_pedidos}
+  - header_pedidos: {header_pedidos}
+  - separator_pedidos: {separator_pedidos}
+  """)
   pedidos = dh.load_pedidos(path = path_pedidos, compression=compression_pedidos, header=header_pedidos, sep=separator_pedidos)
 
   ```
@@ -846,6 +854,7 @@ touch ./data-engineering-pyspark/src/io_utils/data_handler.py
   ```python
   print("Escrevendo o resultado em parquet")
   path_output = config['paths']['output']
+  print(f"Obtido o path de saída: {path_output}")
   dh.write_parquet(df=pedidos_clientes, path=path_output)
 
   ```
