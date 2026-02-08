@@ -204,6 +204,17 @@ O output é longo, mas a parte que nos interessa são as linhas a seguir:
 
 Se o output acima não estiver aparecendo, verifique se o Spark está rodando.
 
+### Verificando o arquivo parquet
+```sh
+pip install parquet-tools
+
+```
+
+```sh
+parquet-tools show ./data-engineering-pyspark/data/output/pedidos_por_cliente
+
+```
+
 ---
 
 ## Passo 1: Schemas Explícitos
