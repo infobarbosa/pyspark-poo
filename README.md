@@ -496,8 +496,8 @@ Vamos seguir este plano passo a passo.
 **1. Crie o diretório e o arquivo de inicialização:**
 
 ```bash
-mkdir -p src/config
-touch src/config/__init__.py
+mkdir -p ./data-enginnering-pyspark/src/config
+touch ./data-enginnering-pyspark/src/config/__init__.py
 
 ```
 
@@ -505,7 +505,7 @@ touch src/config/__init__.py
 
 Este arquivo conterá os caminhos para nossos dados de entrada e para a pasta de saída onde salvaremos o resultado.
 ```bash
-touch src/config/settings.py
+touch ./data-enginnering-pyspark/src/config/settings.py
 
 ```
 
@@ -556,25 +556,25 @@ Ambientes de produção modernos usam formatos como YAML ou JSON, que são agnó
 
 **Solução**: Usar um arquivo YAML para nossas configurações.
 1. Instale a dependência `pyyaml`:
-  ```bash
-  pip install pyyaml
-  
-  ```
+```bash
+pip install pyyaml
+
+```
 
 2. Crie um arquivo `config/settings.yaml`:
-  ```bash
-  mkdir config
+```sh
+mkdir ./data-enginnering-pyspark/src/config
 
-  ```
+```
 
-  ```bash
-  touch config/settings.yaml
+```bash
+touch ./data-enginnering-pyspark/src/onfig/settings.yaml
 
-  ```
+```
 
 3. Adicione o seguinte conteúdo ao arquivo `config/settings.yaml`:
   ```yaml
-  # config/settings.yaml
+  # src/config/settings.yaml
   spark:
     app_name: "Analise de Pedidos"
 
@@ -663,17 +663,17 @@ A criação da `SparkSession` também pode ser isolada para ser mais reutilizáv
 
 1. Crie o diretório e o arquivo de inicialização:
 
-  ```bash
-  mkdir -p src/session
-  touch src/session/__init__.py
+```bash
+mkdir -p ./data-enginnering-pyspark/src/session
+touch ./data-enginnering-pyspark/src/session/__init__.py
 
-  ```
+```
 
 2. Crie o arquivo `src/session/spark_session.py`:
-  ```bash
-  touch src/session/spark_session.py
+```bash
+touch ./data-enginnering-pyspark/src/session/spark_session.py
 
-  ```
+```
 
 3. Adicione o seguinte código a ele:
 
@@ -711,6 +711,7 @@ class SparkSessionManager:
 - Instanciando a sessão spark
   ```python
   spark = SparkSessionManager.get_spark_session(app_name=app_name)
+  
   ```
 ---
 
@@ -721,18 +722,18 @@ Vamos criar uma classe que lida com todas as operações de entrada (leitura) e 
 1. Crie o diretório e o arquivo de inicialização:
 
 ```bash
-mkdir -p src/io_utils
+mkdir -p ./data-enginnering-pyspark/src/io_utils
 
 ```
 
 ```bash
-touch src/io_utils/__init__.py
+touch ./data-enginnering-pyspark/src/io_utils/__init__.py
 
 ```
 
 2. Crie o arquivo `src/io_utils/data_handler.py`:
 ```bash
-touch src/io_utils/data_handler.py
+touch ./data-enginnering-pyspark/src/io_utils/data_handler.py
 
 ```
 
@@ -845,21 +846,21 @@ Esta etapa é semelhante à anterior, mas vamos garantir que o arquivo esteja no
 
 1. Crie o diretório e o arquivo de inicialização:
 
-  ```bash
-  mkdir -p src/processing
+```sh
+mkdir -p ./data-enginnering-pyspark/src/processing
 
-  ```
+```
 
-  ```bash
-  touch src/processing/__init__.py
+```sh
+touch ./data-enginnering-pyspark/src/processing/__init__.py
 
-  ```
+```
 
 2. Crie o arquivo `src/processing/transformations.py`:
-  ```bash
-  touch src/processing/transformations.py
+```bash
+touch ./data-enginnering-pyspark/src/processing/transformations.py
 
-  ```
+```
 
 3. Adicione o seguinte código a ele:
 
@@ -921,7 +922,7 @@ Esta classe contém as regras de negócio puras, que transformam um DataFrame de
 
   - Faça o teste:
     ```bash
-    spark-submit src/main.py
+    spark-submit ./data-enginnering-pyspark/src/main.py
 
     ```
   
@@ -992,10 +993,10 @@ Vamos promover algumas alterações pra que o nosso `main.py` fique mais limpo e
   ```
 
 2. Faça o teste:
-  ```bash
-  spark-submit src/main.py
+```sh
+spark-submit ./data-enginnering-pyspark/src/main.py
 
-  ```
+```
 
 ## O que ganhamos com esta nova estrutura?
 
@@ -1019,17 +1020,17 @@ Vamos criar uma classe `Pipeline` que conterá toda a lógica de orquestração.
 Este arquivo irá abrigar nossa nova classe orquestradora.
 
   ```bash
-  mkdir -p src/pipeline
+  mkdir -p ./data-enginnering-pyspark/src/pipeline
 
   ```
 
   ```bash
-  touch src/pipeline/__init__.py
+  touch ./data-enginnering-pyspark/src/pipeline/__init__.py
 
   ```
 
   ```bash
-  touch src/pipeline/pipeline.py
+  touch ./data-enginnering-pyspark/src/pipeline/pipeline.py
 
   ```
 
@@ -1131,10 +1132,10 @@ Substitua todo o conteúdo do `src/main.py` por este código:
 
 4. Faça o teste:
 
-  ```bash
-  spark-submit src/main.py
+```bash
+spark-submit ./data-enginnering-pyspark/src/main.py
 
-  ```
+```
 
 ### O Grande Ganho: Testabilidade
 
@@ -1349,25 +1350,28 @@ Atualize o `src/main.py` da seguinte forma:
   ```
 
 4. Testando:
-  - Execute o comando a seguir no terminal:
-    ```bash
-    mv data/input/pedidos.gz data/input/pedidos.gz.backup
 
-    ```
+- Altere o caminho do dataset de pedidos em `config/settings.py`:
+```
+PEDIDOS_PATH = "./CAMINHO-INVALIDO/"
 
-  - Execute a aplicação:
-    ```bash
-    spark-submit src/main.py
-    
-    ```
+```
 
-  - Verifique a mensagem de erro
-  
-  - Para voltar o arquivo original, execute:
-    ```bash
-    mv data/input/pedidos.gz.backup data/input/pedidos.gz
-    
-    ```
+- Execute a aplicação:
+
+```bash
+spark-submit ./data-engineering-pyspark/src/main.py
+
+```
+
+- Verifique a mensagem de erro
+
+- Para voltar o arquivo original, execute:
+```
+PEDIDOS_PATH = "./data-engineering-pyspark/data/input/datasets-csv-pedidos/data/pedidos/"
+
+```
+
 
 
 #### Conclusão
@@ -1385,7 +1389,7 @@ Para garantir que nossa aplicação funcione da mesma forma em qualquer máquina
 Na raiz do seu projeto, crie um arquivo chamado `requirements.txt`.
 
   ```bash
-  touch requirements.txt
+  touch ./data-engineering-pyspark/requirements.txt
 
   ```
 
@@ -1407,7 +1411,7 @@ Na raiz do seu projeto, crie um arquivo chamado `requirements.txt`.
   A partir de agora, a forma correta de instalar as dependências do projeto é:
 
   ```bash
-  pip install -r requirements.txt
+  pip install -r ./data-engineering-pyspark/requirements.txt
 
   ```
   Isso garante que qualquer pessoa que execute seu projeto usará exatamente a mesma versão do PySpark.
@@ -1433,7 +1437,7 @@ Para manter nosso código limpo, legível e livre de erros comuns, vamos usar du
 2. Instale as novas dependências:
 
   ```bash
-  pip install -r requirements.txt
+  pip install -r ./data-engineering-pyspark/requirements.txt
 
   ```
 
@@ -1466,7 +1470,7 @@ O passo final da jornada de um engenheiro de software é tornar sua aplicação 
 Este é o arquivo de configuração padrão para projetos Python modernos. Crie-o na raiz do seu projeto.
 
   ```bash
-  touch pyproject.toml
+  touch ./data-engineering-pyspark/pyproject.toml
 
   ```
 
@@ -1519,7 +1523,7 @@ Copie o seguinte conteúdo para o seu `pyproject.toml`. Ele define o nome do nos
 
   - O arquivo:
   ```bash
-  touch MANIFEST.in
+  touch ./data-engineering-pyspark/MANIFEST.in
 
   ```
 
@@ -1552,7 +1556,7 @@ Este é o arquivo que será exibido quando alguém acessar o repositório.
 
   - Instalando:
     ```bash
-    pip install -r requirements.txt
+    pip install -r ./data-engineering-pyspark/requirements.txt
 
     ```
 
@@ -1579,20 +1583,20 @@ Agora, para testar, você pode instalar sua própria aplicação como se fosse q
   - Instalando a versão distribuída
     ```bash
     # Instala o pacote que acabamos de criar
-    pip install dist/*.whl
+    pip install ./data-engineering-pyspark/dist/*.whl
 
     ```
 
     [OPCIONAL] - Caso tenha instado antes e precise forçar a reinstalação:
     ```
-    pip install --force-reinstall dist/dataeng_pyspark_data_pipeline-0.1.0-py3-none-any.whl
+    pip install --force-reinstall ./data-engineering-pyspark/dist/dataeng_pyspark_data_pipeline-0.1.0-py3-none-any.whl
 
     ```
 
   - Executando a aplicação
     ```bash
     spark-submit --master local[*] \
-    --py-files dist/dataeng_pyspark_data_pipeline-0.1.0-py3-none-any.whl \
+    --py-files ./data-engineering-pyspark/dist/dataeng_pyspark_data_pipeline-0.1.0-py3-none-any.whl \
     src/main.py
 
     ```
@@ -1626,7 +1630,7 @@ Vamos focar em **testes unitários** para nossa classe `Transformation`, pois el
 
 - Instale a nova dependência:
   ```bash
-  pip install -r requirements.txt
+  pip install -r ./data-engineering-pyspark/requirements.txt
 
   ```
 
@@ -1635,15 +1639,15 @@ Vamos focar em **testes unitários** para nossa classe `Transformation`, pois el
 É uma convenção criar um diretório `tests` na raiz do projeto, separado do código-fonte (`src`).
 
   ```bash
-  mkdir tests
-  touch tests/__init__.py
+  mkdir ./data-engineering-pyspark/tests
+  touch ./data-engineering-pyspark/tests/__init__.py
 
   ```
 
 Dentro deste diretório, criaremos um arquivo para testar nossas transformações. O nome do arquivo deve começar com `test_`.
 
   ```bash
-  touch tests/test_transformations.py
+  touch ./data-engineering-pyspark/tests/test_transformations.py
 
   ```
 
