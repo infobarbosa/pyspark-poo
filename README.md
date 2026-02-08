@@ -496,8 +496,8 @@ Vamos seguir este plano passo a passo.
 **1. Crie o diretório e o arquivo de inicialização:**
 
 ```bash
-mkdir -p ./data-enginnering-pyspark/src/config
-touch ./data-enginnering-pyspark/src/config/__init__.py
+mkdir -p ./data-engineering-pyspark/src/config
+touch ./data-engineering-pyspark/src/config/__init__.py
 
 ```
 
@@ -505,7 +505,7 @@ touch ./data-enginnering-pyspark/src/config/__init__.py
 
 Este arquivo conterá os caminhos para nossos dados de entrada e para a pasta de saída onde salvaremos o resultado.
 ```bash
-touch ./data-enginnering-pyspark/src/config/settings.py
+touch ./data-engineering-pyspark/src/config/settings.py
 
 ```
 
@@ -563,12 +563,12 @@ pip install pyyaml
 
 2. Crie um arquivo `config/settings.yaml`:
 ```sh
-mkdir ./data-enginnering-pyspark/src/config
+mkdir ./data-engineering-pyspark/src/config
 
 ```
 
 ```bash
-touch ./data-enginnering-pyspark/src/onfig/settings.yaml
+touch ./data-engineering-pyspark/src/onfig/settings.yaml
 
 ```
 
@@ -664,14 +664,14 @@ A criação da `SparkSession` também pode ser isolada para ser mais reutilizáv
 1. Crie o diretório e o arquivo de inicialização:
 
 ```bash
-mkdir -p ./data-enginnering-pyspark/src/session
-touch ./data-enginnering-pyspark/src/session/__init__.py
+mkdir -p ./data-engineering-pyspark/src/session
+touch ./data-engineering-pyspark/src/session/__init__.py
 
 ```
 
 2. Crie o arquivo `src/session/spark_session.py`:
 ```bash
-touch ./data-enginnering-pyspark/src/session/spark_session.py
+touch ./data-engineering-pyspark/src/session/spark_session.py
 
 ```
 
@@ -722,18 +722,18 @@ Vamos criar uma classe que lida com todas as operações de entrada (leitura) e 
 1. Crie o diretório e o arquivo de inicialização:
 
 ```bash
-mkdir -p ./data-enginnering-pyspark/src/io_utils
+mkdir -p ./data-engineering-pyspark/src/io_utils
 
 ```
 
 ```bash
-touch ./data-enginnering-pyspark/src/io_utils/__init__.py
+touch ./data-engineering-pyspark/src/io_utils/__init__.py
 
 ```
 
 2. Crie o arquivo `src/io_utils/data_handler.py`:
 ```bash
-touch ./data-enginnering-pyspark/src/io_utils/data_handler.py
+touch ./data-engineering-pyspark/src/io_utils/data_handler.py
 
 ```
 
@@ -847,18 +847,18 @@ Esta etapa é semelhante à anterior, mas vamos garantir que o arquivo esteja no
 1. Crie o diretório e o arquivo de inicialização:
 
 ```sh
-mkdir -p ./data-enginnering-pyspark/src/processing
+mkdir -p ./data-engineering-pyspark/src/processing
 
 ```
 
 ```sh
-touch ./data-enginnering-pyspark/src/processing/__init__.py
+touch ./data-engineering-pyspark/src/processing/__init__.py
 
 ```
 
 2. Crie o arquivo `src/processing/transformations.py`:
 ```bash
-touch ./data-enginnering-pyspark/src/processing/transformations.py
+touch ./data-engineering-pyspark/src/processing/transformations.py
 
 ```
 
@@ -922,7 +922,7 @@ Esta classe contém as regras de negócio puras, que transformam um DataFrame de
 
   - Faça o teste:
     ```bash
-    spark-submit ./data-enginnering-pyspark/src/main.py
+    spark-submit ./data-engineering-pyspark/src/main.py
 
     ```
   
@@ -994,7 +994,7 @@ Vamos promover algumas alterações pra que o nosso `main.py` fique mais limpo e
 
 2. Faça o teste:
 ```sh
-spark-submit ./data-enginnering-pyspark/src/main.py
+spark-submit ./data-engineering-pyspark/src/main.py
 
 ```
 
@@ -1020,17 +1020,17 @@ Vamos criar uma classe `Pipeline` que conterá toda a lógica de orquestração.
 Este arquivo irá abrigar nossa nova classe orquestradora.
 
   ```bash
-  mkdir -p ./data-enginnering-pyspark/src/pipeline
+  mkdir -p ./data-engineering-pyspark/src/pipeline
 
   ```
 
   ```bash
-  touch ./data-enginnering-pyspark/src/pipeline/__init__.py
+  touch ./data-engineering-pyspark/src/pipeline/__init__.py
 
   ```
 
   ```bash
-  touch ./data-enginnering-pyspark/src/pipeline/pipeline.py
+  touch ./data-engineering-pyspark/src/pipeline/pipeline.py
 
   ```
 
@@ -1133,7 +1133,7 @@ Substitua todo o conteúdo do `src/main.py` por este código:
 4. Faça o teste:
 
 ```bash
-spark-submit ./data-enginnering-pyspark/src/main.py
+spark-submit ./data-engineering-pyspark/src/main.py
 
 ```
 
