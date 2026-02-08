@@ -663,6 +663,7 @@ touch ./data-engineering-pyspark/config/settings.yaml
   ```python
   print("Escrevendo o resultado em parquet")
   path_output = config['paths']['output']
+  print(f"Obtido o path de saída: {path_output}")
   pedidos_clientes.write.mode("overwrite").parquet(path_output)
   ```
 
