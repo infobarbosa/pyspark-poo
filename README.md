@@ -1087,59 +1087,70 @@ Vamos promover algumas alterações pra que o nosso `main.py` fique mais limpo e
 
 1. Substitua todo o conteúdo do `src/main.py` pelo código abaixo:
 
-  ```python
-  # src/main.py
-  from config.settings import carregar_config
-  from session.spark_session import SparkSessionManager
-  from io_utils.data_handler import DataHandler
-  from processing.transformations import Transformation
+```python
+# src/main.py
+from config.settings import carregar_config
+from session.spark_session import SparkSessionManager
+from io_utils.data_handler import DataHandler
+from processing.transformations import Transformation
 
-  def main():
-      config = carregar_config()
-      
-      app_name = config['spark']['app_name']
-      
-      spark = SparkSessionManager.get_spark_session(app_name=app_name)
-      data_handler = DataHandler(spark)
-      transformer = Transformation()
-      
-      print("Abrindo o dataframe de clientes")
-      path_clientes = config['paths']['clientes']
-      clientes_df = data_handler.load_clientes(path = path_clientes)
-      
-      clientes_df.show(5, truncate=False)
-      
-      print("Abrindo o dataframe de pedidos")
-      path_pedidos = config['paths']['pedidos']
-      compression_pedidos = config['file_options']['pedidos_csv']['compression']
-      header_pedidos = config['file_options']['pedidos_csv']['header']
-      separator_pedidos = config['file_options']['pedidos_csv']['sep']
-      pedidos_df = data_handler.load_pedidos(path = path_pedidos, compression=compression_pedidos, header=header_pedidos, sep=separator_pedidos)
-      
-      print("Adicionando a coluna valor_total")
-      pedidos_com_valor_total_df = transformer.add_valor_total_pedidos(pedidos_df)
-      pedidos_com_valor_total_df.show(5, truncate=False)
-      
-      print("Calculando o valor total de pedidos por cliente e filtrar os 10 maiores")
-      top_10_clientes_df = transformer.get_top_10_clientes(pedidos_com_valor_total_df)
-      
-      top_10_clientes_df.show(10, truncate=False)
-      
-      print("Fazendo a junção dos dataframes")
-      resultado_final_df = transformer.join_pedidos_clientes(top_10_clientes_df, clientes_df)
-      
-      resultado_final_df.show(20, truncate=False)
-      
-      print("Escrevendo o resultado em parquet")
-      path_output = config['paths']['output']
-      data_handler.write_parquet(df=resultado_final_df, path=path_output)
-      
-      spark.stop()
-      print("Pipeline concluído com sucesso!")
+def main():
+  
+  config = carregar_config()
+  app_name = config['spark']['app_name']
+  print(f"Obtido o app name: {app_name}")
 
-  if __name__ == "__main__":
-      main()  
-  ```
+  spark = SparkSessionManager.get_spark_session(app_name=app_name)
+
+  dh = DataHandler(spark)
+  transformer = Transformation()
+
+  print("Abrindo o dataframe de clientes")
+  path_clientes = config['paths']['clientes']
+  print(f"Obtido o path de clientes: {path_clientes}")
+  clientes = dh.load_clientes(path = path_clientes)
+  clientes.show(5, truncate=False)
+
+  print("Abrindo o dataframe de pedidos")
+  path_pedidos = config['paths']['pedidos']
+  compression_pedidos = config['file_options']['pedidos_csv']['compression']
+  header_pedidos = config['file_options']['pedidos_csv']['header']
+  separator_pedidos = config['file_options']['pedidos_csv']['sep']
+
+  print(f"""
+  Obtidos os seguintes parâmetros de pedidos: 
+  - path: {path_pedidos}
+  - compression: {compression_pedidos}
+  - header: {header_pedidos}
+  - separator: {separator_pedidos}
+  """)
+
+  pedidos = dh.load_pedidos(path = path_pedidos, compression=compression_pedidos, header=header_pedidos, sep=separator_pedidos)
+
+  print("Adicionando a coluna valor_total")
+  pedidos = transformer.add_valor_total_pedidos(pedidos)
+  pedidos.show(5, truncate=False)
+
+  print("Calculando o valor total de pedidos por cliente e filtrar os 10 maiores")
+  calculado = transformer.get_top_10_clientes(pedidos)
+
+  calculado.show(10, truncate=False)
+
+  print("Fazendo a junção dos dataframes")
+  pedidos_clientes = transformer.join_pedidos_clientes(calculado, clientes)
+  pedidos_clientes.show(20, truncate=False)
+
+  print("Escrevendo o resultado em parquet")
+  path_output = config['paths']['output']
+  print(f"Obtido o path de saída: {path_output}")
+  dh.write_parquet(df=pedidos_clientes, path=path_output)
+
+  spark.stop()
+
+if __name__ == "__main__":
+  main()
+
+```
 
 2. Faça o teste:
 ```sh
@@ -1152,6 +1163,17 @@ spark-submit ./data-engineering-pyspark/src/main.py
 parquet-tools show ./data-engineering-pyspark/data/output/pedidos_por_cliente
 
 ```
+
+```sh
+parquet-tools show ./data-engineering-pyspark/data/output/pedidos_por_cliente/part*.parquet
+
+```
+
+```sh
+ls -latr ./data-engineering-pyspark/data/output/pedidos_por_cliente/
+
+```
+
 
 ## O que ganhamos com esta nova estrutura?
 
