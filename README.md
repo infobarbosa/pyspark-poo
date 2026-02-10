@@ -2027,6 +2027,170 @@ Com dois testes, sua rede de segurança está ainda mais forte. Você pode segui
 
 ---
 
+### Passo 13.1: Testes Parametrizados
+
+Até o momento, criamos um teste para cada cenário de dados. No entanto, na engenharia de software, é comum testar a mesma lógica com múltiplos conjuntos de valores (casos de borda, valores nulos, valores negativos). O `pytest` permite parametrizar os testes para evitar a duplicação de código.
+
+1. **Ajuste no arquivo `tests/test_transformations.py**`:
+Substitua o teste `test_add_valor_total_pedidos` pelo código abaixo:
+
+```python
+import pytest
+from pyspark.sql.types import StructType, StructField, StringType, FloatType, LongType
+
+@pytest.mark.parametrize("valor_unitario, quantidade, esperado", [
+    (10.0, 2, 20.0),   # Cenário base (caminho feliz)
+    (5.5, 0, 0.0),     # Quantidade zero
+    (0.0, 10, 0.0),    # Valor unitário zero
+    (15.0, 3, 45.0)    # Outro cenário comum
+])
+def test_add_valor_total_pedidos_parametrizado(spark_session, valor_unitario, quantidade, esperado):
+    from src.processing.transformations import Transformation
+    transformer = Transformation()
+
+    schema = StructType([
+        StructField("produto", StringType(), True),
+        StructField("valor_unitario", FloatType(), True),
+        StructField("quantidade", LongType(), True),
+    ])
+    df_entrada = spark_session.createDataFrame([("Produto Teste", valor_unitario, quantidade)], schema)
+    
+    df_resultado = transformer.add_valor_total_pedidos(df_entrada)
+    resultado = df_resultado.collect()[0]["valor_total"]
+    
+    assert resultado == esperado
+
+```
+
+2. **Execução**:
+Execute o comando `pytest`. O terminal mostrará que 4 testes foram executados a partir de uma única função.
+
+---
+
+### Passo 13.2: Testando o Tratamento de Erros (Exceções)
+
+No **Passo 9**, adicionamos tratamento de erros com `AnalysisException` e `raise Exception`. Um sistema robusto precisa garantir que esses erros sejam disparados corretamente quando as condições de falha ocorrem.
+
+1. **Crie o arquivo `tests/test_data_handler.py**`:
+
+```python
+import pytest
+from src.io_utils.data_handler import DataHandler
+from pyspark.sql.utils import AnalysisException
+
+def test_load_pedidos_arquivo_inexistente(spark_session):
+    """Garante que uma exceção é levantada ao tentar ler um caminho inválido."""
+    dh = DataHandler(spark_session)
+    caminho_invalido = "/tmp/caminho_que_nao_existe"
+    
+    # Verifica se o erro AnalysisException (ou a Exception customizada) é disparado
+    with pytest.raises(Exception) as excinfo:
+        dh.load_pedidos(path=caminho_invalido, compression="gzip", header=True, sep=";")
+    
+    assert "Erro ao carregar pedidos" in str(excinfo.value)
+
+```
+
+---
+
+### Passo 13.3: Mocking (Isolamento de Componentes)
+
+O objetivo do teste unitário é testar uma classe isoladamente. Ao testar o `Pipeline`, não queremos que ele dependa da leitura real de arquivos no disco. Usamos **Mocks** para simular o comportamento do `DataHandler`.
+
+1. **Instale a dependência**:
+Adicione `pytest-mock` ao seu `requirements.txt` e instale-o.
+2. **Novo teste em `tests/test_pipeline.py**`:
+
+```python
+from unittest.mock import MagicMock
+from src.pipeline.pipeline import Pipeline
+
+def test_pipeline_run_com_mock(spark_session):
+    # Criamos um mock da sessão spark e do data_handler
+    pipeline = Pipeline(spark_session)
+    
+    # Substituímos o data_handler real por um simulado (mock)
+    pipeline.data_handler = MagicMock()
+    pipeline.transformer = MagicMock()
+    
+    config = {
+        'paths': {'clientes': 'c1', 'pedidos': 'p1', 'output': 'o1'},
+        'file_options': {'pedidos_csv': {'compression': 'gzip', 'header': True, 'sep': ';'}}
+    }
+    
+    pipeline.run(config)
+    
+    # Verificamos se o método load_clientes foi chamado exatamente uma vez
+    pipeline.data_handler.load_clientes.assert_called_once()
+
+```
+
+---
+
+### Passo 13.4: Gestão de Recursos (Arquivos de Teste)
+
+Em projetos reais, declarar DataFrames manualmente no código torna os testes extensos e difíceis de manter. A melhor prática é armazenar amostras de dados em arquivos externos.
+
+1. **Estrutura de pastas**:
+Crie o diretório `tests/resources/`.
+2. **Uso nos testes**:
+Em vez de criar listas de dicionários, seus testes passarão a usar caminhos fixos dentro de `tests/resources/` para simular as entradas do `DataHandler`.
+
+---
+
+### Passo 13.5: Cobertura de Código (Coverage)
+
+Como saber se todos os métodos da classe `Transformation` ou `DataHandler` foram testados?. Utilizamos a ferramenta de cobertura.
+
+1. **Execução no Cloud9**:
+Instale o pacote `pytest-cov` e execute:
+```bash
+pytest --cov=src tests/
+
+```
+
+
+O terminal exibirá uma tabela com a porcentagem de linhas de código de cada arquivo que foram exercitadas pelos seus testes. Em ambientes profissionais, busca-se manter essa cobertura acima de 80%.
+
+---
+
+### Passo 13.6: Testes de Integração (End-to-End)
+
+Diferente dos testes unitários, o teste de integração valida se as peças se encaixam. Ele executa o fluxo completo.
+
+1. **Cenário de Integração**:
+Crie um teste que utilize dados reais simplificados (no diretório `data/input/`), execute o `pipeline.run()` e verifique se o arquivo parquet de saída foi criado corretamente no sistema de arquivos do Cloud9.
+
+```python
+import os
+import shutil
+from src.pipeline.pipeline import Pipeline
+
+def test_integracao_fluxo_completo(spark_session, tmp_path):
+    # Arrange: Usamos uma pasta temporária fornecida pelo pytest (tmp_path)
+    output_dir = str(tmp_path / "output")
+    config = {
+        "spark": {"app_name": "TesteIntegracao"},
+        "paths": {
+            "clientes": "./data-engineering-pyspark/data/input/dataset-json-clientes/data/clientes.json.gz",
+            "pedidos": "./data-engineering-pyspark/data/input/datasets-csv-pedidos/data/pedidos/",
+            "output": output_dir
+        },
+        "file_options": {"pedidos_csv": {"compression": "gzip", "header": True, "sep": ";"}}
+    }
+    
+    # Act
+    pipeline = Pipeline(spark_session)
+    pipeline.run(config)
+    
+    # Assert
+    assert os.path.exists(output_dir)
+    assert len(os.listdir(output_dir)) > 0
+
+```
+
+---
+
 ## Parabéns! 
 Você completou a jornada de transformar um simples script em uma aplicação Python robusta, de alta qualidade e distribuível.
 
