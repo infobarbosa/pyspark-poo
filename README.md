@@ -1745,7 +1745,7 @@ Copie o seguinte conteúdo para o seu `pyproject.toml`. Ele define o nome do nos
 
 Este é o arquivo que será exibido quando alguém acessar o repositório.
   ```bash
-  echo "[DATAENG] Meu projeto bem estruturado de dados com PySpark" > README.md
+  echo "[DATAENG] Meu projeto bem estruturado de dados com PySpark" > ./data-engineering-pyspark/README.md
 
   ```
 
