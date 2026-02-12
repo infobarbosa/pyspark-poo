@@ -1802,9 +1802,9 @@ Agora, para testar, você pode instalar sua própria aplicação como se fosse q
 
   - Executando a aplicação
     ```bash
-    spark-submit --master local[*] \
-    --py-files ./data-engineering-pyspark/dist/dataeng_pyspark_data_pipeline-0.1.0-py3-none-any.whl \
-    src/main.py
+    spark-submit --master "local[*]" \
+      --py-files ./data-engineering-pyspark/dist/dataeng_pyspark_data_pipeline-0.1.0-py3-none-any.whl \
+      ./data-engineering-pyspark/src/main.py
 
     ```
 
