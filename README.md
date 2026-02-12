@@ -1606,7 +1606,7 @@ Na raiz do seu projeto, crie um arquivo chamado `requirements.txt`.
 
   ```
   # requirements.txt
-  pyspark==4.0.0
+  pyspark==4.1.1
   pyyaml==6.0.3
 
   ```
@@ -1633,7 +1633,7 @@ Para manter nosso código limpo, legível e livre de erros comuns, vamos usar du
 
   ```
   # requirements.txt
-  pyspark==4.0.0
+  pyspark==4.1.1
   pyyaml==6.0.3
   ruff==0.12.9
   black==25.1.0
@@ -1706,7 +1706,7 @@ Copie o seguinte conteúdo para o seu `pyproject.toml`. Ele define o nome do nos
       "Operating System :: OS Independent",
   ]
   dependencies = [
-      "pyspark==4.0.0",
+      "pyspark==4.1.1",
       "pyyaml==6.0.3"
   ]
 
@@ -1754,7 +1754,7 @@ Este é o arquivo que será exibido quando alguém acessar o repositório.
 
     ```
     # requirements.txt
-    pyspark==4.0.0
+    pyspark==4.1.1
     pyyaml==6.0.3
     ruff==0.12.9
     black==25.1.0
@@ -1826,7 +1826,7 @@ Vamos focar em **testes unitários** para nossa classe `Transformation`, pois el
 - Atualize o `requirements.txt`:
   ```
   # requirements.txt
-  pyspark==4.0.0
+  pyspark==4.1.1
   pyyaml==6.0.3
   ruff==0.12.9
   black==25.1.0
