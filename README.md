@@ -1568,7 +1568,7 @@ Para ver isso funcionando, vamos quebrar nossa aplicação de propósito.
 1. **Teste de Arquivo Inexistente:**
 Abra o arquivo `config/settings.yaml` e altere o parâmetro `PEDIDOS_PATH` para apontar para um arquivo que não existe.
 ```yaml
-PEDIDOS_PATH = "./PATH-INVALIDO/data/input/datasets-csv-pedidos/data/pedidos"
+pedidos : "./PATH-INVALIDO/data/input/datasets-csv-pedidos/data/pedidos"
 
 ```
 
@@ -1577,7 +1577,7 @@ PEDIDOS_PATH = "./PATH-INVALIDO/data/input/datasets-csv-pedidos/data/pedidos"
 
 2. Para voltar a configuração original, faça o ajuste em `config/settings.yaml`:
 ```
-PEDIDOS_PATH = "./data-engineering-pyspark/data/input/datasets-csv-pedidos/data/pedidos/"
+pedidos: "./data-engineering-pyspark/data/input/datasets-csv-pedidos/data/pedidos/"
 
 ```
 
