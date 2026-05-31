@@ -1896,6 +1896,12 @@ Ao final, a árvore ficará assim:
 Sem configuração, o `import` das nossas classes (`from processing.transformations import ...`) falharia, porque o código fica em `src/`. O `pytest.ini` resolve isso e centraliza as opções da suíte.
 
 - Crie o arquivo `./data-engineering-pyspark/pytest.ini`:
+
+  ```bash
+  touch ./data-engineering-pyspark/pytest.ini
+
+  ```
+
   ```ini
   [pytest]
   pythonpath = src
@@ -1917,6 +1923,12 @@ O que cada opção faz:
 Criar uma `SparkSession` é **caro**. Não queremos pagar esse custo em cada teste. O pytest tem um arquivo especial, o `conftest.py`, cujas *fixtures* ficam disponíveis automaticamente para **todos** os testes — sem precisar importar.
 
 - Crie o arquivo `./data-engineering-pyspark/tests/conftest.py`:
+
+  ```bash
+  touch ./data-engineering-pyspark/tests/conftest.py
+
+  ```
+
   ```python
   # tests/conftest.py
   import pytest
@@ -1968,6 +1980,12 @@ Repare em dois pontos importantes em relação à versão anterior do tutorial:
 - Cada teste cobre **um comportamento específico**, incluindo **casos de borda** (nulos, zero, menos de 10 clientes), e a docstring explica *por que* aquele caso importa.
 
 - Crie o arquivo `./data-engineering-pyspark/tests/unit/test_transformations.py`:
+
+  ```bash
+  touch ./data-engineering-pyspark/tests/unit/test_transformations.py
+
+  ```
+
   ```python
   # tests/unit/test_transformations.py
   import pytest
@@ -2125,6 +2143,12 @@ Repare em dois pontos importantes em relação à versão anterior do tutorial:
 O `DataHandler` lê e escreve arquivos. Mas **não** queremos depender dos datasets reais (grandes e externos). A fixture `tmp_path` do pytest cria um diretório temporário, único por teste e apagado automaticamente — nele geramos arquivos minúsculos de propósito.
 
 - Crie o arquivo `./data-engineering-pyspark/tests/unit/test_data_handler.py`:
+
+  ```bash
+  touch ./data-engineering-pyspark/tests/unit/test_data_handler.py
+
+  ```
+
   ```python
   # tests/unit/test_data_handler.py
   import gzip
@@ -2225,6 +2249,12 @@ O `DataHandler` lê e escreve arquivos. Mas **não** queremos depender dos datas
 Estes são os testes **mais rápidos** da suíte: validam apenas a leitura do YAML e nem precisam de Spark. Aqui também testamos o **caminho de erro** (arquivo inexistente).
 
 - Crie o arquivo `./data-engineering-pyspark/tests/unit/test_settings.py`:
+
+  ```bash
+  touch ./data-engineering-pyspark/tests/unit/test_settings.py
+
+  ```
+
   ```python
   # tests/unit/test_settings.py
   import pytest
@@ -2275,6 +2305,12 @@ Estes são os testes **mais rápidos** da suíte: validam apenas a leitura do YA
 Aqui verificamos o **contrato público** da classe: retornar uma `SparkSession` válida e **reutilizar** a sessão existente (comportamento de Singleton via `getOrCreate`).
 
 - Crie o arquivo `./data-engineering-pyspark/tests/unit/test_spark_session.py`:
+
+  ```bash
+  touch ./data-engineering-pyspark/tests/unit/test_spark_session.py
+
+  ```
+
   ```python
   # tests/unit/test_spark_session.py
   from pyspark.sql import SparkSession
@@ -2303,6 +2339,12 @@ Lembra do [Passo 7](#passo-7-injeção-de-dependências), onde injetamos `DataHa
 2. **End-to-end (sem *mock*):** rodamos o pipeline inteiro com dados reais pequenos e conferimos o Parquet de saída.
 
 - Crie o arquivo `./data-engineering-pyspark/tests/integration/test_pipeline.py`:
+
+  ```bash
+  touch ./data-engineering-pyspark/tests/integration/test_pipeline.py
+
+  ```
+
   ```python
   # tests/integration/test_pipeline.py
   import gzip
