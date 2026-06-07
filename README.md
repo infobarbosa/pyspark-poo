@@ -1822,7 +1822,7 @@ Uma boa suíte de testes nos dá:
 - **Confiança para Refatorar:** você melhora o código sabendo que não introduziu bugs.
 - **Documentação Viva:** um bom teste descreve, em código executável, qual o comportamento esperado de cada componente.
 
-### A Pirâmide de Testes
+### 13-A. A Pirâmide de Testes
 
 Nem todo teste é igual. Vamos organizar nossa suíte em duas camadas:
 
@@ -1831,9 +1831,7 @@ Nem todo teste é igual. Vamos organizar nossa suíte em duas camadas:
 
 > A base da pirâmide é larga (muitos testes unitários, rápidos) e o topo é estreito (poucos testes de integração, lentos). Essa proporção mantém a suíte ágil sem abrir mão da confiança de que "as peças se encaixam".
 
-Diferente da versão anterior deste tutorial — que cobria apenas a `Transformation` — vamos testar **todas** as classes do projeto: `Transformation`, `DataHandler`, `SparkSessionManager`, `carregar_config` e o `Pipeline`.
-
-### 1. Adicione as dependências de teste
+### 13-B. Adicione as dependências de teste
 
 `pytest` é o framework de testes mais popular do Python, e o `pytest-cov` mede a **cobertura** (quanto do código é exercitado pelos testes).
 
@@ -1856,7 +1854,7 @@ Diferente da versão anterior deste tutorial — que cobria apenas a `Transforma
 
   ```
 
-### 2. Crie a estrutura de testes
+### 13-C. Crie a estrutura de testes
 
 Convenção: um diretório `tests/` na raiz do projeto, **separado** do `src/` e subdividido por tipo de teste. Os arquivos e funções de teste devem começar com `test_`.
 
@@ -1891,7 +1889,7 @@ Ao final, a árvore ficará assim:
           └── test_pipeline.py
   ```
 
-### 3. Configure o pytest (`pytest.ini`)
+### 13-D. Configure o pytest (`pytest.ini`)
 
 Sem configuração, o `import` das nossas classes (`from processing.transformations import ...`) falharia, porque o código fica em `src/`. O `pytest.ini` resolve isso e centraliza as opções da suíte.
 
@@ -1918,7 +1916,7 @@ O que cada opção faz:
 - **`markers`** — rótulos para categorizar testes (ex.: rodar só os unitários com `pytest -m unit`).
 - **`addopts = -v`** — opções sempre aplicadas (aqui, saída detalhada).
 
-### 4. Centralize a `SparkSession` no `conftest.py`
+### 13-E. Centralize a `SparkSession` no `conftest.py`
 
 Criar uma `SparkSession` é **caro**. Não queremos pagar esse custo em cada teste. O pytest tem um arquivo especial, o `conftest.py`, cujas *fixtures* ficam disponíveis automaticamente para **todos** os testes — sem precisar importar.
 
@@ -1961,7 +1959,7 @@ Pontos-chave:
 - **`spark.ui.enabled=false`** e **`shuffle.partitions=2`** — desligam a UI e reduzem o número de partições para deixar os testes rápidos e silenciosos.
 - Qualquer teste que declare um parâmetro chamado `spark` recebe essa sessão automaticamente.
 
-### 5. A anatomia de um teste: Arrange, Act, Assert
+### 13-F. A anatomia de um teste: Arrange, Act, Assert
 
 Todo teste que escreveremos segue três passos:
 
@@ -1971,11 +1969,11 @@ Todo teste que escreveremos segue três passos:
 
 Com a fundação pronta, vamos escrever os testes camada por camada.
 
-### 6. Testes unitários da `Transformation` (a lógica de negócio)
+### 13-G. Testes unitários da `Transformation` (a lógica de negócio)
 
 Este é o arquivo **mais crítico**: as transformações contêm as regras de negócio. Um erro aqui corromperia silenciosamente todos os resultados. Como é lógica pura, criamos os DataFrames *inline* (sem I/O) — máxima velocidade e isolamento.
 
-Repare em dois pontos importantes em relação à versão anterior do tutorial:
+Repare em dois pontos importantes:
 - Agrupamos os testes em **classes** (`TestAddValorTotalPedidos`, ...) para organizar por método testado.
 - Cada teste cobre **um comportamento específico**, incluindo **casos de borda** (nulos, zero, menos de 10 clientes), e a docstring explica *por que* aquele caso importa.
 
@@ -2138,7 +2136,7 @@ Repare em dois pontos importantes em relação à versão anterior do tutorial:
 - **`pytest.approx`**: números de ponto flutuante (`FloatType`) raramente são exatamente iguais por causa de arredondamento binário. `pytest.approx(3000.0)` compara com uma tolerância, evitando falhas espúrias.
 - **Docstrings que explicam o "porquê"**: cada teste documenta qual regra de negócio protege — o teste vira documentação executável.
 
-### 7. Testes unitários do `DataHandler` (I/O com arquivos temporários)
+### 13-H. Testes unitários do `DataHandler` (I/O com arquivos temporários)
 
 O `DataHandler` lê e escreve arquivos. Mas **não** queremos depender dos datasets reais (grandes e externos). A fixture `tmp_path` do pytest cria um diretório temporário, único por teste e apagado automaticamente — nele geramos arquivos minúsculos de propósito.
 
@@ -2244,7 +2242,7 @@ O `DataHandler` lê e escreve arquivos. Mas **não** queremos depender dos datas
 
 > **`tmp_path`** é uma fixture nativa do pytest que entrega um `pathlib.Path` para um diretório temporário isolado. Cada teste recebe o seu, e o pytest limpa tudo automaticamente — testes que não deixam lixo são testes confiáveis.
 
-### 8. Testes unitários de `carregar_config` (sem Spark)
+### 13-I. Testes unitários de `carregar_config` (sem Spark)
 
 Estes são os testes **mais rápidos** da suíte: validam apenas a leitura do YAML e nem precisam de Spark. Aqui também testamos o **caminho de erro** (arquivo inexistente).
 
@@ -2300,7 +2298,7 @@ Estes são os testes **mais rápidos** da suíte: validam apenas a leitura do YA
 
 > **`pytest.raises`** verifica que um bloco **lança** a exceção esperada. O teste passa se — e somente se — `FileNotFoundError` for levantada. Testar o caminho de erro é tão importante quanto testar o caminho feliz.
 
-### 9. Testes unitários do `SparkSessionManager` (contrato de Singleton)
+### 13-J. Testes unitários do `SparkSessionManager` (contrato de Singleton)
 
 Aqui verificamos o **contrato público** da classe: retornar uma `SparkSession` válida e **reutilizar** a sessão existente (comportamento de Singleton via `getOrCreate`).
 
@@ -2331,7 +2329,7 @@ Aqui verificamos o **contrato público** da classe: retornar uma `SparkSession` 
           assert sessao_a is sessao_b
   ```
 
-### 10. Testes de integração do `Pipeline`
+### 13-K. Testes de integração do `Pipeline`
 
 Lembra do [Passo 7](#passo-7-injeção-de-dependências), onde injetamos `DataHandler` e `Transformation` no `Pipeline`? **Agora colhemos o benefício.** Faremos dois estilos complementares:
 
@@ -2489,7 +2487,7 @@ Lembra do [Passo 7](#passo-7-injeção-de-dependências), onde injetamos `DataHa
 
 > **O que é um `MagicMock(spec=DataHandler)`?** Um objeto falso que tem a mesma "cara" do `DataHandler` (os mesmos métodos), mas cujo comportamento nós controlamos. `assert_called_once_with(...)` verifica que o método foi chamado **exatamente uma vez** e **com os argumentos esperados**. Assim testamos a *orquestração* do `Pipeline` sem ler um único arquivo — só possível porque o `DataHandler` é **injetado** no construtor.
 
-### 11. Executando os testes
+### 13-L. Executando os testes
 
 A partir da raiz do projeto:
 
@@ -2522,7 +2520,7 @@ Para rodar **apenas** uma camada, selecione pelo diretório:
 
 > Os marcadores declarados no `pytest.ini` permitem filtrar com `pytest -m unit`. Para usá-los, marque os testes — por exemplo, adicionando no topo de cada arquivo unitário a linha `pytestmark = pytest.mark.unit` (e `pytestmark = pytest.mark.integration` no arquivo de integração).
 
-### 12. Medindo a cobertura de código
+### 13-M. Medindo a cobertura de código
 
 Cobertura indica **quais linhas do código foram exercitadas** pelos testes. É um termômetro útil: embora 100% de cobertura não garanta ausência de bugs, áreas com cobertura baixa são pontos cegos.
 
@@ -2558,9 +2556,9 @@ Para um relatório navegável em HTML:
 
 > **Cuidado com a métrica:** busque cobrir os **caminhos críticos e os casos de borda** (foi o que fizemos), não perseguir 100% a qualquer custo. Um teste que executa o código mas não verifica nada (sem `assert`) aumenta a cobertura sem proteger contra nada.
 
-### Recapitulando
+### 13-N. Recapitulando
 
-Saímos de 2 testes para uma suíte completa que cobre todas as camadas da aplicação:
+Agora temos uma suíte completa que cobre todas as camadas da aplicação:
 
 | Camada | Arquivo | O que protege |
 |---|---|---|
