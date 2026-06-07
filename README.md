@@ -2486,13 +2486,14 @@ Lembra do [Passo 7](#passo-7-injeção-de-dependências), onde injetamos `DataHa
 
 ### 13-L. Executando os testes
 
-A partir da raiz do projeto:
+A partir da pasta anterior (a que contém o diretório `data-engineering-pyspark/`), sem precisar entrar nele:
 
   ```bash
-  cd ./data-engineering-pyspark
-  pytest
+  pytest ./data-engineering-pyspark
 
   ```
+
+Passamos o caminho do projeto como argumento para que o pytest **encontre o `pyproject.toml`** e aplique o `pythonpath`. Rodar `pytest` sozinho, a partir da pasta anterior, faria o pytest procurar a configuração apenas "para cima" e não a encontraria — causando erros de import.
 
 A saída lista cada teste (graças ao `-v` do `addopts`):
 
@@ -2510,8 +2511,8 @@ A saída lista cada teste (graças ao `-v` do `addopts`):
 Para rodar **apenas** uma camada, selecione pelo diretório:
 
   ```bash
-  pytest tests/unit          # só os testes unitários (rápidos)
-  pytest tests/integration   # só os testes de integração
+  pytest ./data-engineering-pyspark/tests/unit          # só os testes unitários (rápidos)
+  pytest ./data-engineering-pyspark/tests/integration   # só os testes de integração
 
   ```
 
@@ -2521,10 +2522,10 @@ Para rodar **apenas** uma camada, selecione pelo diretório:
 
 Cobertura indica **quais linhas do código foram exercitadas** pelos testes. É um termômetro útil: embora 100% de cobertura não garanta ausência de bugs, áreas com cobertura baixa são pontos cegos.
 
-Rode com o `pytest-cov`, apontando para o pacote `src`:
+Rode com o `pytest-cov`, apontando para o código em `./data-engineering-pyspark/src`:
 
   ```bash
-  pytest --cov=src --cov-report=term-missing
+  pytest ./data-engineering-pyspark --cov=./data-engineering-pyspark/src --cov-report=term-missing
 
   ```
 
@@ -2546,7 +2547,7 @@ A saída mostra a porcentagem por arquivo e **quais linhas faltam** (`Missing`):
 Para um relatório navegável em HTML:
 
   ```bash
-  pytest --cov=src --cov-report=html
+  pytest ./data-engineering-pyspark --cov=./data-engineering-pyspark/src --cov-report=html
   # abra htmlcov/index.html no navegador
 
   ```
