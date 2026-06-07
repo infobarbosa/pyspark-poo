@@ -1872,7 +1872,7 @@ Ao final, a árvore ficará assim:
 
   ```
   data-engineering-pyspark/
-  ├── pytest.ini
+  ├── pyproject.toml              # config do projeto e do pytest
   ├── src/
   │   └── ...
   └── tests/
@@ -1889,32 +1889,29 @@ Ao final, a árvore ficará assim:
           └── test_pipeline.py
   ```
 
-### 13-D. Configure o pytest (`pytest.ini`)
+### 13-D. Configure o pytest (no `pyproject.toml`)
 
-Sem configuração, o `import` das nossas classes (`from processing.transformations import ...`) falharia, porque o código fica em `src/`. O `pytest.ini` resolve isso e centraliza as opções da suíte.
+Sem configuração, o `import` das nossas classes (`from processing.transformations import ...`) falharia, porque o código fica em `src/`. Em vez de criar um novo arquivo, vamos **centralizar** a configuração no `pyproject.toml` que você já criou no Passo 12, adicionando a seção `[tool.pytest.ini_options]`.
 
-- Crie o arquivo `./data-engineering-pyspark/pytest.ini`:
+- Edite o `pyproject.toml` (criado no Passo 12) e **adicione ao final** a seção `[tool.pytest.ini_options]`:
 
-  ```bash
-  touch ./data-engineering-pyspark/pytest.ini
-
-  ```
-
-  ```ini
-  [pytest]
-  pythonpath = src
-  testpaths = tests
-  markers =
-      unit: Testes unitários isolados (sem I/O externo)
-      integration: Testes de integração (orquestração entre componentes)
-  addopts = -v
+  ```toml
+  # pyproject.toml (adicione ao final)
+  [tool.pytest.ini_options]
+  pythonpath = ["src"]
+  testpaths = ["tests"]
+  markers = [
+      "unit: Testes unitários isolados (sem I/O externo)",
+      "integration: Testes de integração (orquestração entre componentes)",
+  ]
+  addopts = "-v"
   ```
 
 O que cada opção faz:
-- **`pythonpath = src`** — adiciona `src/` ao caminho de import. É por isso que escrevemos `from processing.transformations import Transformation` (e **não** `from src.processing...`).
-- **`testpaths = tests`** — onde o pytest procura testes.
+- **`pythonpath`** — adiciona `src/` ao caminho de import. É por isso que escrevemos `from processing.transformations import Transformation` (e **não** `from src.processing...`).
+- **`testpaths`** — onde o pytest procura testes.
 - **`markers`** — rótulos para categorizar testes (ex.: rodar só os unitários com `pytest -m unit`).
-- **`addopts = -v`** — opções sempre aplicadas (aqui, saída detalhada).
+- **`addopts`** — opções sempre aplicadas (aqui, saída detalhada).
 
 ### 13-E. Centralize a `SparkSession` no `conftest.py`
 
@@ -2518,7 +2515,7 @@ Para rodar **apenas** uma camada, selecione pelo diretório:
 
   ```
 
-> Os marcadores declarados no `pytest.ini` permitem filtrar com `pytest -m unit`. Para usá-los, marque os testes — por exemplo, adicionando no topo de cada arquivo unitário a linha `pytestmark = pytest.mark.unit` (e `pytestmark = pytest.mark.integration` no arquivo de integração).
+> Os marcadores declarados no `pyproject.toml` (seção `[tool.pytest.ini_options]`) permitem filtrar com `pytest -m unit`. Para usá-los, marque os testes — por exemplo, adicionando no topo de cada arquivo unitário a linha `pytestmark = pytest.mark.unit` (e `pytestmark = pytest.mark.integration` no arquivo de integração).
 
 ### 13-M. Medindo a cobertura de código
 
