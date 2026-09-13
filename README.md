@@ -384,9 +384,6 @@ spark-submit /tmp/schema-definido.py
 ---
 
 ### Definindo os schemas do projeto
-
-**1. Defina os Schemas com `StructType`:**
-
 Vamos usar `StructType` e `StructField` para declarar a estrutura exata dos nossos dados.
 
 ```python
@@ -416,7 +413,7 @@ schema_pedidos = StructType([
 ])
 ```
 
-**2. Atualize o `src/main.py` para usar os Schemas:**
+**1. Atualize o `src/main.py` para usar os Schemas:**
 
 Substitua todo o conteúdo do `src/main.py` pela versão abaixo.
 
@@ -481,6 +478,24 @@ pedidos_clientes.write.mode("overwrite").parquet("./data-engineering-pyspark/dat
 spark.stop()
 ```
 Com nosso ponto de partida agora robusto e performático, podemos começar a refatoração para a Programação Orientada a Objetos.
+
+
+**2. Execute o projeto e confira os resultados:**
+
+```sh
+spark-submit ./data-engineering-pyspark/src/main.py
+
+```
+
+```sh
+parquet-tools show ./data-engineering-pyspark/data/output/pedidos_por_cliente
+
+```
+
+```sh
+ls -la ./data-engineering-pyspark/data/output/pedidos_por_cliente/
+
+```
 
 ---
 
@@ -571,6 +586,13 @@ OUTPUT_PATH = "./data-engineering-pyspark/data/output/pedidos_por_cliente"
   pedidos_clientes.write.mode("overwrite").parquet(OUTPUT_PATH)
   ```
 
+**5. Execute o projeto:**
+
+```sh
+spark-submit ./data-engineering-pyspark/src/main.py
+
+```
+
 ---
 
 ### Externalizando configurações
@@ -587,10 +609,6 @@ pip install pyyaml
 2. Crie um arquivo `config/settings.yaml`:
 ```sh
 mkdir ./data-engineering-pyspark/config
-
-```
-
-```bash
 touch ./data-engineering-pyspark/config/settings.yaml
 
 ```
@@ -690,27 +708,39 @@ touch ./data-engineering-pyspark/config/settings.yaml
   pedidos_clientes.write.mode("overwrite").parquet(path_output)
   ```
 
+12. Execute o projeto e confira os resultados:
+
+```sh
+spark-submit ./data-engineering-pyspark/src/main.py
+
+```
+
+```sh
+parquet-tools show ./data-engineering-pyspark/data/output/pedidos_por_cliente
+
+```
+
+```sh
+ls -la ./data-engineering-pyspark/data/output/pedidos_por_cliente/
+
+```
+
 ---
 
 ## Passo 3: Gerenciando a Sessão Spark
 
 A criação da `SparkSession` também pode ser isolada para ser mais reutilizável e fácil de configurar.
 
-1. Crie o diretório e o arquivo de inicialização:
+1. Crie o diretório:
 
 ```bash
 mkdir -p ./data-engineering-pyspark/src/session
 touch ./data-engineering-pyspark/src/session/__init__.py
-
-```
-
-2. Crie o arquivo `src/session/spark_session.py`:
-```bash
 touch ./data-engineering-pyspark/src/session/spark_session.py
 
 ```
 
-3. Adicione o seguinte código a ele:
+2. Adicione o seguinte código a ele:
 
 Esta classe simples será responsável por fornecer uma sessão Spark configurada para nossa aplicação.
 
@@ -748,6 +778,24 @@ class SparkSessionManager:
   spark = SparkSessionManager.get_spark_session(app_name=app_name)
   
   ```
+
+5. Execute o projeto e confira os resultados:
+
+```sh
+spark-submit ./data-engineering-pyspark/src/main.py
+
+```
+
+```sh
+parquet-tools show ./data-engineering-pyspark/data/output/pedidos_por_cliente
+
+```
+
+```sh
+ls -la ./data-engineering-pyspark/data/output/pedidos_por_cliente/
+
+```
+
 ---
 
 ## Passo 4: Pacote de Leitura e Escrita de Dados (I/O)
@@ -758,21 +806,12 @@ Vamos criar uma classe que lida com todas as operações de entrada (leitura) e 
 
 ```bash
 mkdir -p ./data-engineering-pyspark/src/io_utils
-
-```
-
-```bash
 touch ./data-engineering-pyspark/src/io_utils/__init__.py
-
-```
-
-2. Crie o arquivo `src/io_utils/data_handler.py`:
-```bash
 touch ./data-engineering-pyspark/src/io_utils/data_handler.py
 
 ```
 
-3. Adicione o seguinte código a ele:
+2. Adicione o seguinte código a ele:
 
   Esta classe irá conter a lógica para ler os arquivos de clientes e pedidos, e também um novo método para escrever nosso resultado final em formato Parquet.
 
@@ -835,7 +874,7 @@ touch ./data-engineering-pyspark/src/io_utils/data_handler.py
 
   ```
 
-4. Faça os ajustes em `main.py`:
+3. Faça os ajustes em `main.py`:
 
 - Importar DataHandler do pacote io_utils.data_handler:
   ```python
@@ -882,6 +921,23 @@ touch ./data-engineering-pyspark/src/io_utils/data_handler.py
 
   ```
 
+6. Execute o projeto e confira os resultados:
+
+```sh
+spark-submit ./data-engineering-pyspark/src/main.py
+
+```
+
+```sh
+parquet-tools show ./data-engineering-pyspark/data/output/pedidos_por_cliente
+
+```
+
+```sh
+ls -la ./data-engineering-pyspark/data/output/pedidos_por_cliente/
+
+```
+
 ---
 
 ## Passo 5: Isolando a Lógica de Negócio
@@ -892,21 +948,12 @@ Esta etapa é semelhante à anterior, mas vamos garantir que o arquivo esteja no
 
 ```sh
 mkdir -p ./data-engineering-pyspark/src/processing
-
-```
-
-```sh
 touch ./data-engineering-pyspark/src/processing/__init__.py
-
-```
-
-2. Crie o arquivo `src/processing/transformations.py`:
-```bash
 touch ./data-engineering-pyspark/src/processing/transformations.py
 
 ```
 
-3. Adicione o seguinte código a ele:
+2. Adicione o seguinte código a ele:
 
 Esta classe contém as regras de negócio puras, que transformam um DataFrame de entrada em um DataFrame de saída.
 
@@ -938,7 +985,7 @@ Esta classe contém as regras de negócio puras, que transformam um DataFrame de
 
   ```
 
-4. Faça os seguintes ajustes em `main.py` :
+3. Faça os seguintes ajustes em `main.py` :
   - Importe o pacote processing.transformations
     ```python
     from processing.transformations import Transformation
@@ -969,7 +1016,24 @@ Esta classe contém as regras de negócio puras, que transformam um DataFrame de
     spark-submit ./data-engineering-pyspark/src/main.py
 
     ```
-  
+
+4. Execute o projeto e confira os resultados:
+
+```sh
+spark-submit ./data-engineering-pyspark/src/main.py
+
+```
+
+```sh
+parquet-tools show ./data-engineering-pyspark/data/output/pedidos_por_cliente
+
+```
+
+```sh
+ls -la ./data-engineering-pyspark/data/output/pedidos_por_cliente/
+
+```
+
 ---
 
 ## Passo 6: Refatoração de `main.py`
@@ -1152,20 +1216,14 @@ if __name__ == "__main__":
 
 ```
 
-2. Faça o teste:
+2. Execute o projeto:
 ```sh
 spark-submit ./data-engineering-pyspark/src/main.py
 
 ```
 
-3. Conferindo o arquivo parquet:
 ```sh
 parquet-tools show ./data-engineering-pyspark/data/output/pedidos_por_cliente
-
-```
-
-```sh
-parquet-tools show ./data-engineering-pyspark/data/output/pedidos_por_cliente/part*.parquet
 
 ```
 
@@ -1199,15 +1257,7 @@ Este arquivo irá abrigar nossa nova classe orquestradora.
 
   ```bash
   mkdir -p ./data-engineering-pyspark/src/pipeline
-
-  ```
-
-  ```bash
   touch ./data-engineering-pyspark/src/pipeline/__init__.py
-
-  ```
-
-  ```bash
   touch ./data-engineering-pyspark/src/pipeline/pipeline.py
 
   ```
@@ -1319,12 +1369,23 @@ if __name__ == "__main__":
 
 ```
 
-4. Faça o teste:
+4. Execute o projeto:
 
 ```bash
 spark-submit ./data-engineering-pyspark/src/main.py
 
 ```
+
+```sh
+parquet-tools show ./data-engineering-pyspark/data/output/pedidos_por_cliente
+
+```
+
+```sh
+ls -la ./data-engineering-pyspark/data/output/pedidos_por_cliente/
+
+```
+
 
 ### Ingestão de dependencias e a problemática da **testabilidade**
 
@@ -1424,6 +1485,18 @@ logger = logging.getLogger(__name__)
           logger.info("Pipeline concluído com sucesso!")
   ```
 
+6. Execute novamente e confira o arquivo gerado `dataeng-pyspark-poo.log`:
+
+```sh
+spark-submit ./data-engineering-pyspark/src/main.py
+
+```
+
+```sh
+tail -100 dataeng-pyspark-poo.log
+
+```
+
 ---
 
 ## Passo 9: Tratamento de Erros
@@ -1463,14 +1536,15 @@ Vamos capturar esse erro e verificar se o dataframe tem dados.
 Precisamos importar a exceção do Spark e o módulo de logging.
 
 ```python
-# src/io_utils/data_handler.py
 import logging
-from pyspark.sql import SparkSession, DataFrame
+```
+
+```python
 from pyspark.sql.utils import AnalysisException # <-- Importante
-# ... imports de types ...
+```
 
+```python
 logger = logging.getLogger(__name__) # <-- Inicializa o logger
-
 ```
 
 **2. Ajuste o método `load_pedidos` com try/except e verificação de vazio:**
@@ -1579,11 +1653,32 @@ pedidos : "./PATH-INVALIDO/data/input/datasets-csv-pedidos/data/pedidos"
 *Observe o log de erro tratado.*
 
 
-2. Para voltar a configuração original, faça o ajuste em `config/settings.yaml`:
+Após o teste, volte a configuração original, faça o ajuste em `config/settings.yaml`:
 ```
 pedidos: "./data-engineering-pyspark/data/input/datasets-csv-pedidos/data/pedidos/"
 
 ```
+
+2. **Teste de Arquivo Corrompido**
+```sh
+echo "meu arquivo" > /data-engineering-pyspark/data/input/datasets-csv-pedidos/data/pedidos/corrompido.csv.gz
+
+```
+
+```sh
+spark-submit ./data-engineering-pyspark/src/main.py
+
+```
+
+**Atenção!**<br>
+Repare onde o erro ocorre. Após as nossas alterações ele **não** acontece em `DataHandler`. Sabe dizer por quê?
+
+Após o teste remova o arquivo corrompido:
+```sh
+rm /data-engineering-pyspark/data/input/datasets-csv-pedidos/data/pedidos/corrompido.csv.gz
+
+```
+
 
 #### Conclusão
 
