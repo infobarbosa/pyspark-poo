@@ -2669,4 +2669,25 @@ As especificações do dataset (formato, estrutura de atributos, etc) estão dis
 
 ---
 
+## Referências
 
+### Livros
+- **Spark: The Definitive Guide** (Bill Chambers & Matei Zaharia): O guia definitivo para entender a fundo o motor do Apache Spark.
+- **Learning Spark: Lightning-Fast Data Analytics** (Jules S. Damji et al.): Ótimo para quem está começando e foca nas APIs mais modernas.
+- **Clean Code: A Handbook of Agile Software Craftsmanship** (Robert C. Martin): Leitura fundamental para as partes de refatoração, organização e qualidade de código.
+- **Engenharia de Software Moderna** (Marco Tulio Valente): Referência excelente em português sobre princípios de engenharia de software e POO.
+
+### Documentação Oficial
+- [Apache Spark - Documentação Oficial](https://spark.apache.org/docs/latest/): Referência primária para configurações e APIs.
+- [PySpark - Referência da API](https://spark.apache.org/docs/latest/api/python/): Detalhes sobre módulos, classes e funções do PySpark.
+- [Documentação Oficial do Python](https://docs.python.org/3/): Para guias sobre POO, Exceptions, Logging, entre outros.
+- [Documentação do Pytest](https://docs.pytest.org/): Guia completo para a criação e organização de testes automatizados em Python.
+
+### Ferramentas e Bibliotecas
+- [Black (Formatador de Código)](https://black.readthedocs.io/): O formatador de código Python rigoroso (uncompromising code formatter).
+- [Flake8 (Linter)](https://flake8.pycqa.org/): Ferramenta para verificação de estilo de código e identificação de erros de sintaxe.
+- [Poetry (Gestão de Dependências)](https://python-poetry.org/): Excelente para gestão de pacotes, dependências e ambientes virtuais em Python.
+
+### Artigos e Tutoriais
+- [Databricks Engineering Blog](https://www.databricks.com/blog/category/engineering): Artigos aprofundados sobre arquitetura de dados, boas práticas e novidades do mundo Spark.
+- [PEP 8 – Style Guide for Python Code](https://peps.python.org/pep-0008/): O guia de estilo de código Python, muito útil na etapa de refatoração e qualidade de código.
