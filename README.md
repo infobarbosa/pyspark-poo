@@ -1416,57 +1416,86 @@ import logging
 logger = logging.getLogger(__name__)
 ```
 
-1. Importe o pacote `Logging` em `src/main.py`:
+1. Substitua completamente o conteúdo de `settings.py`:
 
   ```python
+  # src/config/settings.py
+  import yaml
+  import logging.config
+
+  def carregar_config(path: str = "src/config/settings.yaml") -> dict:
+      """Carrega o arquivo YAML."""
+      with open(path, 'r') as file:
+          return yaml.safe_load(file)
+
+  def configurar_logging(config_logging: dict):
+      """Aplica a configuração de logging lida do YAML."""
+      logging.config.dictConfig(config_logging)
+      logging.getLogger(__name__).info("Logging configurado com sucesso via YAML.")
+  ```
+
+2. Acrescente o seguinte conteúdo ao arquivo `settings.yaml`:
+  ```yaml
+  # Configuração Padrão de Mercado para Logging
+  logging:
+    version: 1
+    disable_existing_loggers: False
+    formatters:
+      padrao:
+        format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        datefmt: "%Y-%m-%d %H:%M:%S"
+    handlers:
+      console:
+        class: logging.StreamHandler
+        level: INFO
+        formatter: padrao
+        stream: ext://sys.stdout
+    root:
+      level: INFO
+      handlers: [console]
+  ```
+
+3. Substitua o conteúdo completo de `main.py` pelo código abaixo:
+
+  ```python
+  # src/main.py
+  from config.settings import carregar_config, configurar_logging
+  from session.spark_session import SparkSessionManager
+  from io_utils.data_handler import DataHandler
+  from processing.transformations import Transformation
+  from pipeline.pipeline import Pipeline
   import logging
-  ```
 
-2. Crie uma função para configurar o logging:
+  def main():
+      # 1. Carrega configurações do YAML
+      config = carregar_config()
 
-  ```python
-  # Crie a configuração do logging
-  def configurar_logging():
-      """Configura o logging para todo o projeto."""
-      logging.basicConfig(
-          # Nível mínimo de severidade para ser registrado.
-          # DEBUG < INFO < WARNING < ERROR < CRITICAL
-          level=logging.INFO,
+      # 2. Ativa o log instantaneamente
+      configurar_logging(config['logging'])
 
-          # Formato da mensagem de log.
-          format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-          datefmt='%Y-%m-%d %H:%M:%S',
+      # 3. Inicia a aplicação
+      logger = logging.getLogger(__name__)
+      logger.info(f"Iniciando job: {config['spark']['app_name']}")
 
-          # Lista de handlers. Aqui, estamos logando para um arquivo e para o console.
-          handlers=[
-              logging.FileHandler("dataeng-pyspark-poo.log"), # Log para arquivo
-              logging.StreamHandler()                         # Log para o console (terminal)
-          ]
-      )
-      logging.info("Logging configurado.")
+      spark = SparkSessionManager.get_spark_session(app_name=config['spark']['app_name'])
 
-  ```
+      # Composition Root
+      data_handler = DataHandler(spark)
+      transformer = Transformation()
+      pipeline = Pipeline(data_handler, transformer)
+      
+      pipeline.run(config=config)
 
-3. Antes de chamar a função `main()`, chame `configurar_logging()`:
+      spark.stop()
+      logger.info("Pipeline finalizado com sucesso.")
 
-  ```python
   if __name__ == "__main__":
-      configurar_logging()
       main()
-
   ```
 
-4. Agora que o *Root Logger* está configurado, crie um `logger` local em `main()`:
+4. Em todas as classes, adicione a configuração do logger no início do arquivo e substitua todos os `print()` por chamadas ao `logging`.<br>
 
-Essa será a primeira linha do método `main()`.
-```python
-logger = logging.getLogger(__name__)
-
-```
-
-5. Em todas as classes, adicione a configuração do logger no início do arquivo e substitua todos os `print()` por chamadas ao `logging`.<br>
-
-  Substitua o código completo da classe Pipeline (`src/pipeline.py`) pela versão abaixo que instancia e utiliza o objeto `logger`:
+  Por exemplo, a seguir está o código completo da classe Pipeline (`src/pipeline.py`) instancia e utiliza o objeto `logger`:
 
   ```python
   # src/pipeline/pipeline.py
