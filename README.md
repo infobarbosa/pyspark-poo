@@ -1423,7 +1423,7 @@ logger = logging.getLogger(__name__)
   import yaml
   import logging.config
 
-  def carregar_config(path: str = "src/config/settings.yaml") -> dict:
+  def carregar_config(path: str = "./data-engineering-pyspark/config/settings.yaml") -> dict:
       """Carrega o arquivo YAML."""
       with open(path, 'r') as file:
           return yaml.safe_load(file)
