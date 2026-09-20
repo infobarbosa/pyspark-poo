@@ -1159,59 +1159,59 @@ from processing.transformations import Transformation
 
 def main():
   
-  config = carregar_config()
-  app_name = config['spark']['app_name']
-  print(f"Obtido o app name: {app_name}")
+    config = carregar_config()
+    app_name = config['spark']['app_name']
+    print(f"Obtido o app name: {app_name}")
 
-  spark = SparkSessionManager.get_spark_session(app_name=app_name)
+    spark = SparkSessionManager.get_spark_session(app_name=app_name)
 
-  data_handler = DataHandler(spark)
-  transformer = Transformation()
+    data_handler = DataHandler(spark)
+    transformer = Transformation()
 
-  print("Abrindo o dataframe de clientes")
-  path_clientes = config['paths']['clientes']
-  print(f"Obtido o path de clientes: {path_clientes}")
-  clientes_df = data_handler.load_clientes(path = path_clientes)
-  clientes_df.show(5, truncate=False)
+    print("Abrindo o dataframe de clientes")
+    path_clientes = config['paths']['clientes']
+    print(f"Obtido o path de clientes: {path_clientes}")
+    clientes_df = data_handler.load_clientes(path = path_clientes)
+    clientes_df.show(5, truncate=False)
 
-  print("Abrindo o dataframe de pedidos")
-  path_pedidos = config['paths']['pedidos']
-  compression_pedidos = config['file_options']['pedidos_csv']['compression']
-  header_pedidos = config['file_options']['pedidos_csv']['header']
-  separator_pedidos = config['file_options']['pedidos_csv']['sep']
+    print("Abrindo o dataframe de pedidos")
+    path_pedidos = config['paths']['pedidos']
+    compression_pedidos = config['file_options']['pedidos_csv']['compression']
+    header_pedidos = config['file_options']['pedidos_csv']['header']
+    separator_pedidos = config['file_options']['pedidos_csv']['sep']
 
-  print(f"""
-  Obtidos os seguintes parâmetros de pedidos: 
-  - path: {path_pedidos}
-  - compression: {compression_pedidos}
-  - header: {header_pedidos}
-  - separator: {separator_pedidos}
-  """)
+    print(f"""
+    Obtidos os seguintes parâmetros de pedidos: 
+    - path: {path_pedidos}
+    - compression: {compression_pedidos}
+    - header: {header_pedidos}
+    - separator: {separator_pedidos}
+    """)
 
-  pedidos_df = data_handler.load_pedidos(path = path_pedidos, compression=compression_pedidos, header=header_pedidos, sep=separator_pedidos)
+    pedidos_df = data_handler.load_pedidos(path = path_pedidos, compression=compression_pedidos, header=header_pedidos, sep=separator_pedidos)
 
-  print("Adicionando a coluna valor_total")
-  pedidos_df = transformer.add_valor_total_pedidos(pedidos_df)
-  pedidos_df.show(5, truncate=False)
+    print("Adicionando a coluna valor_total")
+    pedidos_df = transformer.add_valor_total_pedidos(pedidos_df)
+    pedidos_df.show(5, truncate=False)
 
-  print("Calculando o valor total de pedidos por cliente e filtrar os 10 maiores")
-  top_10_clientes_df = transformer.get_top_10_clientes(pedidos_df)
+    print("Calculando o valor total de pedidos por cliente e filtrar os 10 maiores")
+    top_10_clientes_df = transformer.get_top_10_clientes(pedidos_df)
 
-  top_10_clientes_df.show(10, truncate=False)
+    top_10_clientes_df.show(10, truncate=False)
 
-  print("Fazendo a junção dos dataframes")
-  relatorio_top_10_cliente_df = transformer.join_pedidos_clientes(top_10_clientes_df, clientes_df)
-  relatorio_top_10_cliente_df.show(20, truncate=False)
+    print("Fazendo a junção dos dataframes")
+    relatorio_top_10_cliente_df = transformer.join_pedidos_clientes(top_10_clientes_df, clientes_df)
+    relatorio_top_10_cliente_df.show(20, truncate=False)
 
-  print("Escrevendo o resultado em parquet")
-  path_output = config['paths']['output']
-  print(f"Obtido o path de saída: {path_output}")
-  data_handler.write_parquet(df=relatorio_top_10_cliente_df, path=path_output)
+    print("Escrevendo o resultado em parquet")
+    path_output = config['paths']['output']
+    print(f"Obtido o path de saída: {path_output}")
+    data_handler.write_parquet(df=relatorio_top_10_cliente_df, path=path_output)
 
-  spark.stop()
+    spark.stop()
 
 if __name__ == "__main__":
-  main()
+    main()
 
 
 ```
@@ -1348,24 +1348,24 @@ from pipeline.pipeline import Pipeline
 
 def main():
   
-  config = carregar_config()
-  app_name = config['spark']['app_name']
-  print(f"Obtido o app name: {app_name}")
+    config = carregar_config()
+    app_name = config['spark']['app_name']
+    print(f"Obtido o app name: {app_name}")
 
-  spark = SparkSessionManager.get_spark_session(app_name=app_name)
+    spark = SparkSessionManager.get_spark_session(app_name=app_name)
 
-  # Raiz de Composição (Composition Root):
-  # este é o ÚNICO lugar que monta as dependências concretas e as injeta.
-  data_handler = DataHandler(spark)
-  transformer = Transformation()
-  pipeline = Pipeline(data_handler, transformer)
-  pipeline.run(config=config)
+    # Raiz de Composição (Composition Root):
+    # este é o ÚNICO lugar que monta as dependências concretas e as injeta.
+    data_handler = DataHandler(spark)
+    transformer = Transformation()
+    pipeline = Pipeline(data_handler, transformer)
+    pipeline.run(config=config)
 
 
-  spark.stop()
+    spark.stop()
 
 if __name__ == "__main__":
-  main()
+    main()
 
 ```
 
@@ -1427,23 +1427,23 @@ logger = logging.getLogger(__name__)
   ```python
   # Crie a configuração do logging
   def configurar_logging():
-    """Configura o logging para todo o projeto."""
-    logging.basicConfig(
-        # Nível mínimo de severidade para ser registrado.
-        # DEBUG < INFO < WARNING < ERROR < CRITICAL
-        level=logging.INFO,
+      """Configura o logging para todo o projeto."""
+      logging.basicConfig(
+          # Nível mínimo de severidade para ser registrado.
+          # DEBUG < INFO < WARNING < ERROR < CRITICAL
+          level=logging.INFO,
 
-        # Formato da mensagem de log.
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S',
+          # Formato da mensagem de log.
+          format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+          datefmt='%Y-%m-%d %H:%M:%S',
 
-        # Lista de handlers. Aqui, estamos logando para um arquivo e para o console.
-        handlers=[
-            logging.FileHandler("dataeng-pyspark-poo.log"), # Log para arquivo
-            logging.StreamHandler()                         # Log para o console (terminal)
-        ]
-    )
-    logging.info("Logging configurado.")
+          # Lista de handlers. Aqui, estamos logando para um arquivo e para o console.
+          handlers=[
+              logging.FileHandler("dataeng-pyspark-poo.log"), # Log para arquivo
+              logging.StreamHandler()                         # Log para o console (terminal)
+          ]
+      )
+      logging.info("Logging configurado.")
 
   ```
 
@@ -1466,23 +1466,71 @@ logger = logging.getLogger(__name__)
 
 5. Em todas as classes, adicione a configuração do logger no início do arquivo e substitua todos os `print()` por chamadas ao `logging`.<br>
 
-  Abaixo está um exemplo na classe `src/pipeline.py`:
+  Substitua o código completo da classe Pipeline (`src/pipeline.py`) pela versão abaixo que instancia e utiliza o objeto `logger`:
 
   ```python
   # src/pipeline/pipeline.py
-  import logging
   from io_utils.data_handler import DataHandler
   from processing.transformations import Transformation
+  import logging
 
   logger = logging.getLogger(__name__)
 
   class Pipeline:
-      # ... (o construtor __init__ permanece o mesmo) ...
+      """
+      Encapsula a lógica de execução do pipeline de dados.
+      """
+      def __init__(self, data_handler: DataHandler, transformer: Transformation):
+          self.data_handler = data_handler
+          self.transformer = transformer
 
       def run(self, config):
+          """
+          Executa o pipeline completo: carga, transformação, e salvamento.
+          """
           logger.info("Pipeline iniciado...")
-          # ... (substitua os prints por logging.info) ...
+
+          logger.info("Abrindo o dataframe de clientes")
+          path_clientes = config['paths']['clientes']
+          logger.info(f"Obtido o path de clientes: {path_clientes}")
+          clientes_df = self.data_handler.load_clientes(path = path_clientes)
+          clientes_df.show(5, truncate=False)
+
+          logger.info("Abrindo o dataframe de pedidos")
+          path_pedidos = config['paths']['pedidos']
+          compression_pedidos = config['file_options']['pedidos_csv']['compression']
+          header_pedidos = config['file_options']['pedidos_csv']['header']
+          separator_pedidos = config['file_options']['pedidos_csv']['sep']
+          
+          logger.info(f"""Obtidos os seguintes parâmetros de pedidos:
+          - path: {path_pedidos}
+          - compression: {compression_pedidos}
+          - header: {header_pedidos}
+          - separator: {separator_pedidos}
+          """)
+          
+          pedidos_df = self.data_handler.load_pedidos(path = path_pedidos, compression=compression_pedidos, header=header_pedidos, sep=separator_pedidos)
+          
+          logger.info("Adicionando a coluna valor_total")
+          pedidos_df = self.transformer.add_valor_total_pedidos(pedidos_df)
+          pedidos_df.show(5, truncate=False)
+          
+          logger.info("Calculando o valor total de pedidos por cliente e filtrar os 10 maiores")
+          top_10_clientes_df = self.transformer.get_top_10_clientes(pedidos_df)
+          
+          top_10_clientes_df.show(10, truncate=False)
+          
+          logger.info("Fazendo a junção dos dataframes")
+          relatorio_top_10_cliente_df = self.transformer.join_pedidos_clientes(top_10_clientes_df, clientes_df)
+          relatorio_top_10_cliente_df.show(20, truncate=False)
+          
+          logger.info("Escrevendo o resultado em parquet")
+          path_output = config['paths']['output']
+          logger.info(f"Obtido o path de saída: {path_output}")
+          self.data_handler.write_parquet(df=relatorio_top_10_cliente_df, path=path_output)
+
           logger.info("Pipeline concluído com sucesso!")
+      
   ```
 
 6. Execute novamente e confira o arquivo gerado `dataeng-pyspark-poo.log`:
