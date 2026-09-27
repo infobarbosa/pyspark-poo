@@ -1773,19 +1773,20 @@ from pyspark.errors import AnalysisException, PySparkException
 
 Até aqui, vimos como capturar as exceções técnicas do Spark (`AnalysisException` e `PySparkException`). No entanto, em um projeto orientado a objetos e bem arquitetado, **o chamador (como o `Pipeline` ou o `main.py`) não deve depender de exceções internas do framework**.
 
-Se no futuro o `DataHandler` mudar a engine de leitura (ou ler de uma API REST ou banco relacional), o chamador não precisará alterar seus blocos `except`. Para resolver isso, criamos **exceções customizadas de domínio** e usamos a técnica de **Exception Chaining** (`raise ... from e`, da PEP 3134), que preserva o *traceback* da causa raiz original.
+Como boa prática de engenharia de software e para evitar acoplamento desnecessário ou *circular imports*, as exceções de uma camada devem residir em um módulo isolado (`exceptions.py`), e não misturadas dentro do arquivo da classe executável (`data_handler.py`).
 
-1. **`data_handler.py`**: Adicione os imports e a hierarquia de exceções no início do arquivo:
+1. Crie o arquivo `src/io_utils/exceptions.py`:
+
+```bash
+touch ./data-engineering-pyspark/src/io_utils/exceptions.py
+
+```
+
+2. Defina a hierarquia de exceções da camada de I/O em `src/io_utils/exceptions.py`:
 
 ```python
-# src/io_utils/data_handler.py
-from pyspark.sql import DataFrame
-from pyspark.errors import PySparkException, AnalysisException
-import logging
+# src/io_utils/exceptions.py
 
-logger = logging.getLogger(__name__)
-
-# Hierarquia de exceções da camada de I/O
 class DataHandlerException(Exception):
     """Exceção base para qualquer falha na camada de I/O."""
     pass
@@ -1793,11 +1794,23 @@ class DataHandlerException(Exception):
 class LoadPedidosException(DataHandlerException):
     """Lançada especificamente ao falhar o carregamento do dataset de pedidos."""
     pass
+
 ```
 
-2. **`data_handler.py`**: No método `load_pedidos`, capture o erro do Spark e relance empacotado na exceção de domínio:
+3. Atualize o `src/io_utils/data_handler.py`:
+Importe as exceções do módulo recém-criado e relance os erros capturados do Spark usando **Exception Chaining** (`raise ... from e`, da PEP 3134):
 
 ```python
+# src/io_utils/data_handler.py
+from pyspark.sql import DataFrame
+from pyspark.errors import PySparkException, AnalysisException
+from io_utils.exceptions import DataHandlerException, LoadPedidosException
+import logging
+
+logger = logging.getLogger(__name__)
+
+# ... restante da classe DataHandler ...
+
     def load_pedidos(self, path: str, compression: str, header:bool, sep:str) -> DataFrame:
         try:
             schema = self._get_schema_pedidos()
@@ -1819,11 +1832,12 @@ class LoadPedidosException(DataHandlerException):
         except PySparkException as e:
             logger.error(f"Erro de processamento no PySpark [Classe: {e.getErrorClass()}]: {e}")
             raise LoadPedidosException(f"Erro no motor Spark ao carregar pedidos em '{path}'") from e
+
 ```
 
 ### Blindando `main.py`
 
-Agora que nosso `DataHandler` possui sua própria hierarquia de exceções, o `main.py` pode tratar falhas em camadas sem acoplar-se aos detalhes internos da engine:
+Agora que nosso pacote `io_utils` possui seu próprio módulo de exceções, o `main.py` pode tratar falhas em camadas sem acoplar-se aos detalhes internos da engine:
 
 1. Atualize o `src/main.py` para capturar as falhas do pipeline:
 
@@ -1831,7 +1845,8 @@ Agora que nosso `DataHandler` possui sua própria hierarquia de exceções, o `m
 # src/main.py
 from config.settings import carregar_config, configurar_logging
 from session.spark_session import SparkSessionManager
-from io_utils.data_handler import DataHandler, DataHandlerException, LoadPedidosException
+from io_utils.data_handler import DataHandler
+from io_utils.exceptions import DataHandlerException, LoadPedidosException
 from processing.transformations import Transformation
 from pipeline.pipeline import Pipeline
 from pyspark.errors import PySparkException
@@ -1914,7 +1929,7 @@ spark-submit ./data-engineering-pyspark/src/main.py
 
      The above exception was the direct cause of the following exception:
 
-     io_utils.data_handler.LoadPedidosException: Falha ao carregar pedidos a partir de './PATH-INVALIDO/...'
+     io_utils.exceptions.LoadPedidosException: Falha ao carregar pedidos a partir de './PATH-INVALIDO/...'
      ```
 
 2. **No terminal**, confira o código de saída retornado ao sistema operacional imediatamente após o comando:
@@ -1968,7 +1983,7 @@ Saímos de um pipeline que falhava de forma silenciosa ou ilegível e chegamos a
 
 | Camada | Onde | O que garante |
 |---|---|---|
-| `DataHandlerException` / `LoadPedidosException` | `data_handler.py` | Desacopla o chamador do Spark; traduz falhas técnicas em exceções de negócio preservando o *traceback* original (`from e`). |
+| `DataHandlerException` / `LoadPedidosException` | `io_utils/exceptions.py` | Desacopla o chamador do Spark; traduz falhas técnicas em exceções de negócio preservando o *traceback* original (`from e`). |
 | `try/except/finally` | `main.py` | Última linha de defesa: captura exceções de domínio e do Spark, avisa o orquestrador (`sys.exit(1)`) e garante o `spark.stop()` no `finally`. |
 
 Repare no padrão que usamos no `DataHandler`: **logar e relançar encapsulado em exceção de domínio** (`raise ... from e`).
