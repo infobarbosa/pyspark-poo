@@ -1728,11 +1728,13 @@ A melhor forma de lidar com esse erro é adotar práticas defensivas:
 
 Como a `AnalysisException` é mais específica que a `PySparkException`, nós a capturamos **primeiro**:
 
+1. Importe `AnalysisException`
 ```python
-# src/io_utils/data_handler.py
 from pyspark.errors import AnalysisException, PySparkException
+```
 
-    # ... dentro do load_pedidos ...
+2. Aplique o tratamento de erro:
+```python
     def load_pedidos(self, path: str, compression: str, header:bool, sep:str) -> DataFrame:
         try:
             schema = self._get_schema_pedidos()
@@ -1747,6 +1749,9 @@ from pyspark.errors import AnalysisException, PySparkException
 
         except AnalysisException as e:
             logger.error(f"Erro de análise/metadados no Spark [Classe: {e.getErrorClass()}]: {e}")
+            raise e
+        except PySparkException as e:
+            logger.error(f"Erro no PySpark [Classe: {e.getErrorClass()} | SQLSTATE: {e.getSqlState()}]: {e}")
             raise e
 ```
 
