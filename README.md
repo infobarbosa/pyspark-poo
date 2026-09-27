@@ -1661,14 +1661,22 @@ A maior vantagem da hierarquia moderna é eliminar o *parsing* manual de strings
 
 #### Exemplo de `PySparkException`
 
+Vamos fazer alguns ajustes em `data_handler.py` para capturar exceções PySpark.
+
+1. Importações
 ```python
-# src/io_utils/data_handler.py
 from pyspark.errors import PySparkException
 import logging
+```
 
+2. Ajuste do logger
+```python
 logger = logging.getLogger(__name__)
+```
 
-    # ... dentro do load_pedidos ...
+3. Aplicação no método `load_pedidos`
+```python
+
     def load_pedidos(self, path: str, compression: str, header:bool, sep:str) -> DataFrame:
         try:
             schema = self._get_schema_pedidos()
