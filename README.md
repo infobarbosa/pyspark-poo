@@ -1577,83 +1577,242 @@ tail -100 dataeng-pyspark-poo.log
 ---
 
 ## Passo 9: Tratamento de Erros
-Ao trabalhar com processamento de dados em grande escala, é inevitável que nos deparemos com imprevistos, como dados ausentes ou malformados, falhas de conexão com fontes de dados ou erros de lógica em nossas transformações.
-Ignorar essas possíveis falhas pode levar à interrupção de pipelines, resultados incorretos e perda de tempo valioso.
 
-### Cenário 1: Integridade dos Dados (Read Modes)
+Ao trabalhar com processamento de dados em grande escala, é inevitável que nos deparemos com imprevistos, como dados ausentes ou malformados, falhas de conexão com fontes de dados ou erros de lógica em nossas transformações. Ignorar essas possíveis falhas pode levar à interrupção de pipelines, corrupção silenciosa de dados e diagnósticos demorados em produção.
 
-O Spark, por padrão, é "permissivo". Se você definir que uma coluna é `Integer` mas chegar um texto "abc", o Spark converte silenciosamente para `null`. Em sistemas financeiros ou críticos, isso é inaceitável. Queremos que o processo falhe imediatamente (`FAILFAST`) se o dado estiver sujo.
+---
 
-> Atenção! Essa opção só é válida para arquivos baseados em **texto** como **CSV** e **JSON**.
+### A Evolução do Tratamento de Erros no PySpark: O Pacote `pyspark.errors`
 
-Vamos alterar o `src/io_utils/data_handler.py`.
+Compreender onde e como os erros são disparados no PySpark depende de entender a evolução da própria biblioteca:
 
-**Exemplo**
+#### Como era antes do PySpark 4 (versões legadas e Spark 2.x / 3.x inicial)
+* **Exceções dispersas:** Exceções do Spark SQL eram importadas de módulos secundários, principalmente `pyspark.sql.utils` (por exemplo, `from pyspark.sql.utils import AnalysisException`).
+* **Dependência da ponte Py4J (`Py4JJavaError`):** Como o PySpark é uma camada Python sobre a JVM, boa parte dos erros ocorridos na execução física não eram traduzidos. Eles chegavam ao Python empacotados como `py4j.protocol.Py4JJavaError`, exibindo *stack traces* Java quilométricos e forçando o desenvolvedor a capturar erros genéricos de infraestrutura em vez de exceções semânticas de negócio.
+* **Diagnóstico frágil:** Não existia uma padronização formal de códigos de erro; identificar a causa raiz muitas vezes exigia fazer *parsing* de strings na mensagem de erro do Java.
 
-Adicionando a opção `.option("mode", "FAILFAST")` ao método `load_pedidos`:**
+#### Como é agora (PySpark 4 e consolidação do `pyspark.errors`)
+A partir do PySpark 3.4 e consolidado de forma definitiva no **PySpark 4**, o Apache Spark introduziu uma hierarquia unificada e idiomática de erros no pacote nativo [**`pyspark.errors`**](https://spark.apache.org/docs/latest/api/python/reference/pyspark.errors.html):
+
+* **Módulo Oficial Centralizado:** Todas as exceções do PySpark (Core, SQL, Streaming e Connect) estão centralizadas em `pyspark.errors`. Agora importamos diretamente:
+  ```python
+  from pyspark.errors import PySparkException, AnalysisException, ParseException
+  ```
+* **Hierarquia Unificada (`PySparkException`):** Todas as exceções de usuário herdam da classe base `PySparkException`, permitindo capturar tanto falhas específicas quanto qualquer erro originado no ecossistema Spark de forma limpa.
+* **Error Classes e SQLSTATE:** Os erros agora contam com classes de erro padronizadas e códigos SQLSTATE (padrão ANSI SQL). Métodos como `e.getErrorClass()`, `e.getSqlState()` e `e.getMessageParameters()` permitem criar regras de monitoramento, métricas e retentativas programáticas sem depender de expressões regulares na mensagem de erro.
+* **Menos atrito com a JVM:** Grande parte dos erros que antes estouravam como `Py4JJavaError` agora são interceptados e mapeados para subclasses nativas de `PySparkException`, tornando o código muito mais legível e manutenível.
+
+---
+
+### Estrutura Básica de Tratamento de Erros (`try / except`)
+
+Antes de vermos os cenários práticos no PySpark, vale recapitular como o Python gerencia exceções através dos blocos `try`, `except`, `else` e `finally`, e quais são as boas práticas recomendadas para pipelines de dados:
 
 ```python
-    # src/io_utils/data_handler.py
-    def load_pedidos(self, path: str, compression: str, header:bool, sep:str) -> DataFrame:
-        """Carrega o dataframe de pedidos com modo FAILFAST."""
-        schema = self._get_schema_pedidos()
-        return self.spark.read \
-            .option("compression", compression) \
-            .option("mode", "FAILFAST") \
-            .csv(path, header=header, schema=schema, sep=sep)
-    # ...
+try:
+    # 1. Bloco protegido: onde ocorrem operações com risco de falha
+    logger.info("Iniciando leitura e processamento...")
+    df = spark.read.csv("caminho/para/dados.csv", header=True)
+    df.show(5)
 
+except PySparkException as e:
+    # 2. Captura específica: trata ou registra erros nativos do PySpark
+    logger.error(f"Falha de execução no PySpark: {e}")
+    raise  # Relança o erro para que o orquestrador (ex: Airflow) detecte a falha
+
+except Exception as e:
+    # 3. Captura genérica: última linha de defesa para erros inesperados
+    logger.error(f"Erro inesperado no pipeline: {e}")
+    raise
+
+else:
+    # 4. Executado APENAS se o bloco 'try' foi concluído sem lançar nenhuma exceção
+    logger.info("Etapa concluída com sucesso.")
+
+finally:
+    # 5. Executado SEMPRE, ocorrendo erro ou não
+    # Ideal para encerramento de conexões, limpeza de temporários ou auditoria
+    logger.info("Finalizando rotina e liberando recursos.")
 ```
 
-### Cenário 2: Falhas estruturais - `AnalysisException`
+#### Boas Práticas em Pipelines de Dados:
+1. **Nunca "engula" erros em silêncio:** Evite `except: pass`. Silenciar exceções mascara problemas graves, gera perda de integridade nos dados e dificulta a auditoria em produção.
+2. **Ordene do mais específico ao mais genérico:** Capture primeiro as exceções especializadas do PySpark (ex: `AnalysisException`, `ParseException`), depois a classe base do framework (`PySparkException`) e, por último, a classe genérica do Python (`Exception`).
+3. **Registre com `logger.error`:** Não use `print()`; registre o traceback e o contexto do erro no logger configurado no Passo 8.
+4. **Relance (`raise`) quando necessário:** Se a integridade dos dados for violada ou uma etapa indispensável quebrar, pare o fluxo imediatamente para não propagar dados corrompidos.
+
+---
+
+### Cenário 1: A Exceção Base do Ecossistema - `PySparkException`
+
+#### O que é a `PySparkException`?
+
+A `PySparkException` é a classe base de todas as exceções nativas do PySpark, disponível diretamente no pacote [`pyspark.errors`](https://spark.apache.org/docs/latest/api/python/reference/pyspark.errors.html). 
+
+Antes de sua formalização, capturar erros do Spark no Python era uma tarefa ingrata: ou capturava-se a genérica `Exception` do Python (perdendo o contexto do framework), ou lidava-se com a ruidosa `Py4JJavaError`. Com a `PySparkException`, você ganha uma **rede de segurança padronizada e idiomática** para qualquer falha interna originada no ecossistema Spark (seja no Core, SQL, Streaming ou Connect).
+
+#### Identificação Estruturada de Erros
+
+A maior vantagem da hierarquia moderna é eliminar o *parsing* manual de strings de erro. Toda exceção derivada de `PySparkException` fornece métodos nativos para diagnóstico:
+
+* **`e.getErrorClass()`**: Retorna a classe textual padronizada do erro (ex: `"PATH_NOT_FOUND"`, `"COLUMN_NOT_FOUND"`, `"CANNOT_PARSE_INTERVAL"`). Ideal para condicionais e métricas.
+* **`e.getSqlState()`**: Retorna o código padrão ANSI SQL associado (ex: `"42000"` para erros de sintaxe ou semântica).
+* **`e.getMessageParameters()`**: Retorna um dicionário com os valores reais que causaram a falha (ex: nome da tabela ou caminho que não foi encontrado).
+
+#### Exemplo de `PySparkException`
+
+Vamos fazer alguns ajustes em `data_handler.py` para capturar exceções PySpark.
+
+1. Importações
+```python
+from pyspark.errors import PySparkException
+import logging
+```
+
+2. Ajuste do logger
+```python
+logger = logging.getLogger(__name__)
+```
+
+3. Aplicação no método `load_pedidos`
+```python
+
+    def load_pedidos(self, path: str, compression: str, header:bool, sep:str) -> DataFrame:
+        try:
+            schema = self._get_schema_pedidos()
+            df = self.spark.read \
+                .option("compression", compression) \
+                .csv(path, header=header, schema=schema, sep=sep)
+            
+            if df.isEmpty():
+                logger.warning(f"ATENÇÃO: O arquivo em '{path}' foi lido mas não contém registros.")
+            
+            return df
+
+        except PySparkException as e:
+            logger.error(f"Erro no PySpark [Classe: {e.getErrorClass()} | SQLSTATE: {e.getSqlState()}]: {e}")
+            raise e
+```
+
+---
+
+### Cenário 2: Falhas Estruturais e Metadados - `AnalysisException`
 
 #### O que é a `AnalysisException`?
 
-O PySpark utiliza um modelo de **avaliação preguiçosa (lazy evaluation)**. Quando você escreve um código (como selecionar colunas, fazer filtros ou joins), o Spark não executa a ação imediatamente. Em vez disso, ele cria um "plano lógico" de como essa operação deve ser feita.
+A `AnalysisException` é uma **subclasse especializada de `PySparkException`**.
 
-Antes de transformar esse plano lógico em um plano físico de execução, o componente central do Spark chamado **Catalyst Optimizer** analisa o seu código para validar se ele faz sentido. A `AnalysisException` é o erro que o Catalyst lança quando **o seu plano lógico é inválido**.
+O PySpark utiliza um modelo de **avaliação preguiçosa (lazy evaluation)**. Quando você escreve uma operação (selecionar colunas, fazer filtros ou joins), o Spark não executa imediatamente — ele constrói um "plano lógico".
+
+Antes de transformar esse plano lógico em execução física nos nós do cluster, o componente central do Spark chamado **Catalyst Optimizer** analisa o seu código para validar se ele faz sentido com relação aos metadados. A `AnalysisException` é o erro que o Catalyst lança quando **o seu plano lógico é inválido**.
 
 #### Principais causas desse erro
 
-Na prática, a `AnalysisException` é o Spark dizendo: *"Eu entendi o seu código Python, mas a lógica de banco de dados ou a estrutura dos dados está errada"*. Isso ocorre quase sempre por falhas de metadados, tais como:
+Na prática, a `AnalysisException` é o Spark dizendo: *"Eu entendi o seu código Python, mas a lógica de banco de dados ou a estrutura dos dados está errada"*. Exemplos frequentes em pipelines:
 
-* **Coluna Inexistente (Column not found):** Você tentou selecionar, filtrar ou agrupar por uma coluna que não existe no DataFrame ou foi digitada com erro ortográfico.
-* **Ambiguidade de Colunas (Ambiguous reference):** Muito comum após um `join` entre duas tabelas que possuem colunas com o mesmo nome. Se você tentar selecionar essa coluna depois do join, o Spark não saberá de qual tabela você está falando.
-* **Incompatibilidade de Tipos (Type mismatch):** Você tentou realizar uma operação matemática em uma coluna de texto (String) ou comparar tipos de dados que não conversam entre si.
-* **Erro de Sintaxe SQL:** Quando você usa `spark.sql("SELECT * FRM tabela")` e comete um erro de digitação na query SQL (como "FRM" em vez de "FROM").
-
-#### Por que importar essa exceção?
-
-Em pipelines de dados (ETL) de produção, os dados podem mudar. Uma coluna pode sumir na origem, ou um tipo de dado pode vir alterado. Se você não tratar esse erro, o pipeline inteiro irá "quebrar" e parar de rodar.
+* **Coluna Inexistente (UNRESOLVED_COLUMN):** Você tentou selecionar, filtrar ou agrupar por uma coluna que não existe no DataFrame ou foi digitada com erro de digitação.
+* **Ambiguidade de Colunas (AMBIGUOUS_REFERENCE):** Muito comum após um `join` entre duas tabelas que possuem colunas com o mesmo nome sem aliases.
+* **Incompatibilidade de Tipos (DATATYPE_MISMATCH):** Você tentou realizar uma operação matemática em uma coluna de texto (String) ou comparar tipos de dados incompatíveis.
+* **Caminho Inexistente (`PATH_NOT_FOUND`):** Você tentou ler um arquivo ou pasta que não existe na origem.
+* **Erro de Sintaxe SQL:** Quando você usa `spark.sql("SELECT * FRM tabela")` e comete um erro de sintaxe na query.
 
 #### Como evitar a AnalysisException
 
-A melhor forma de lidar com esse erro é ter práticas defensivas antes da ação ocorrer:
+A melhor forma de lidar com esse erro é adotar práticas defensivas:
 
 1. **Verifique a existência da coluna:** Antes de operar, cheque a lista de colunas com `if "coluna" in df.columns:`.
 2. **Resolva ambiguidades no Join:** Use aliases (apelidos) para os DataFrames antes de juntá-los e chame as colunas pelo alias (`df_a["id"]`).
-3. **Conheça seus dados:** Use `df.printSchema()` frequentemente durante o desenvolvimento para garantir que a tipagem e os nomes aninhados estão corretos.
+3. **Conheça seus dados:** Use `df.printSchema()` frequentemente durante o desenvolvimento para garantir que a tipagem e os nomes estão corretos.
 
 #### Exemplo de `AnalysisException`
 
-1. Inclua os imports necessários em `src/io_utils/data_handler.py`:**
-Precisamos importar a exceção do Spark e o módulo de logging.
+Como a `AnalysisException` é mais específica que a `PySparkException`, nós a capturamos **primeiro**:
 
+1. Importe `AnalysisException`
 ```python
-# src/io_utils/data_handler.py
-# outros imports...
-from pyspark.sql.utils import AnalysisException
+from pyspark.errors import AnalysisException, PySparkException
+```
 
-# outras instruções...
-
-    # outros métodos ...
-    
+2. Aplique o tratamento de erro:
+```python
     def load_pedidos(self, path: str, compression: str, header:bool, sep:str) -> DataFrame:
         try:
             schema = self._get_schema_pedidos()
             df = self.spark.read \
                 .option("compression", compression) \
-                .option("mode", "FAILFAST") \
+                .csv(path, header=header, schema=schema, sep=sep)
+            
+            if df.isEmpty():
+                logger.warning(f"ATENÇÃO: O arquivo em '{path}' foi lido mas não contém registros.")
+            
+            return df
+
+        except AnalysisException as e:
+            logger.error(f"Erro de análise/metadados no Spark [Classe: {e.getErrorClass()}]: {e}")
+            raise e
+        except PySparkException as e:
+            logger.error(f"Erro no PySpark [Classe: {e.getErrorClass()} | SQLSTATE: {e.getSqlState()}]: {e}")
+            raise e
+```
+
+---
+
+> [!NOTE]
+> ### 💡 Por que não capturamos `Py4JJavaError`? (Legado vs. Spark Connect)
+> 
+> Em tutoriais mais antigos ou discussões no StackOverflow, você verá com frequência códigos fazendo `from py4j.protocol import Py4JJavaError`. No PySpark moderno (3.4+ e 4.0), **isso se tornou um anti-pattern** por duas razões principais:
+> 
+> 1. **Vazamento de Abstração:** O Py4J é apenas a biblioteca que implementa a ponte de comunicação entre o interpretador Python e o processo Java no modo clássico. Depender diretamente dele acopla o seu código de dados a detalhes internos de infraestrutura.
+> 2. **Incompatibilidade com o Spark Connect:** A nova arquitetura padrão do PySpark (Spark Connect) comunica-se com clusters via **gRPC**, sem utilizar Py4J no lado cliente. Códigos que dependem de `Py4JJavaError` tornam-se frágeis e incompatíveis com ambientes modernos como Databricks Serverless.
+> 
+> A criação do módulo [`pyspark.errors`](https://spark.apache.org/docs/latest/api/python/reference/pyspark.errors.html) veio justamente para resolver esse problema: todas as falhas de execução e da JVM agora são traduzidas para exceções nativas (`PySparkException` e suas especializações).
+
+---
+
+### Blindando `DataHandler` com Exceções Customizadas (POO)
+
+Até aqui, vimos como capturar as exceções técnicas do Spark (`AnalysisException` e `PySparkException`). No entanto, em um projeto orientado a objetos e bem arquitetado, **o chamador (como o `Pipeline` ou o `main.py`) não deve depender de exceções internas do framework**.
+
+Como boa prática de engenharia de software e para evitar acoplamento desnecessário ou *circular imports*, as exceções de uma camada devem residir em um módulo isolado (`exceptions.py`), e não misturadas dentro do arquivo da classe executável (`data_handler.py`).
+
+1. Crie o arquivo `src/io_utils/exceptions.py`:
+
+```bash
+touch ./data-engineering-pyspark/src/io_utils/exceptions.py
+
+```
+
+2. Defina a hierarquia de exceções da camada de I/O em `src/io_utils/exceptions.py`:
+
+```python
+# src/io_utils/exceptions.py
+
+class DataHandlerException(Exception):
+    """Exceção base para qualquer falha na camada de I/O."""
+    pass
+
+class LoadPedidosException(DataHandlerException):
+    """Lançada especificamente ao falhar o carregamento do dataset de pedidos."""
+    pass
+
+```
+
+3. Em `src/io_utils/data_handler.py` importe as exceções do módulo recém-criado :
+
+```python
+from io_utils.exceptions import DataHandlerException, LoadPedidosException
+
+```
+
+4. Relance os erros capturados do Spark usando **Exception Chaining** (`raise ... from e`, da PEP 3134):
+
+```python
+
+    def load_pedidos(self, path: str, compression: str, header:bool, sep:str) -> DataFrame:
+        try:
+            schema = self._get_schema_pedidos()
+            df = self.spark.read \
+                .option("compression", compression) \
                 .csv(path, header=header, schema=schema, sep=sep)
             
             # Verificação de Dataframe Vazio
@@ -1663,112 +1822,31 @@ from pyspark.sql.utils import AnalysisException
             return df
 
         except AnalysisException as e:
-            logger.error(f"Erro ao ler arquivo: {e}")
-            raise e # Relança o erro para parar o pipeline
+            logger.error(f"Erro de análise/metadados no Spark [Classe: {e.getErrorClass()}]: {e}")
+            # Encapsula o erro técnico na exceção de negócio mantendo o traceback original (from e)
+            raise LoadPedidosException(f"Falha ao carregar pedidos a partir de '{path}'") from e
 
-```
-
-### Cenário 3: Falhas de JVM - `Py4JJavaError`
-
-Como o PySpark roda em cima da JVM (Java), alguns erros críticos (como falta de memória ou arquivo corrompido fisicamente) chegam como `Py4JJavaError`. 
-
-#### O que é a `Py4JJavaError`?
-O `Py4JJavaError` é uma exceção de infraestrutura. Ele vem do pacote py4j.protocol porque o **Py4J** é uma biblioteca externa, independente do Spark, usada apenas como uma "ponte" de comunicação.<br>
-Enquanto a `AnalysisException` acontece no "planejamento" (antes da execução), o `Py4JJavaError` ocorre **durante a execução física** ou na **interação direta com o ambiente Java**.
-
-Quando a JVM tenta executar uma tarefa e sofre um erro grave (um arquivo que não existe, memória que estourou, erro de conexão com a AWS/HDFS), o Java lança uma exceção. Como o Python não entende erros do Java nativamente, o Py4J intercepta esse erro e o joga para o seu script Python na forma de um `Py4JJavaError`.
-
-Basicamente, o `Py4JJavaError` é o mensageiro dizendo: *"Ocorreu um erro no lado do Java, e eu não sei traduzi-lo para um erro nativo do Python, então estou te entregando o erro bruto"*.
-
-#### Principais causas desse erro
-
-Como ele é um "pacote" genérico para erros da JVM, suas causas são muito variadas, mas as mais comuns em engenharia de dados são:
-
-* **Falta de Memória (Out of Memory - OOM):** O *Driver* ou os *Executors* da JVM ficaram sem memória ao processar um volume de dados muito grande (ex: um `collect()` de um DataFrame gigante).
-* **Erro de I/O (Leitura/Escrita):** Você tentou ler um arquivo CSV/Parquet que não existe, ou não tem permissões para gravar no diretório de destino no S3/HDFS.
-* **Incompatibilidade de Tipos em Tempo de Execução:** O Catalyst Optimizer achou que o plano estava certo (evitando a `AnalysisException`), mas na hora de ler o arquivo físico, uma coluna que deveria ser `Integer` continha letras.
-* **Falta de dependências (.jar):** Você tentou conectar a um banco de dados via JDBC ou ler um arquivo do S3, mas esqueceu de passar os arquivos `.jar` necessários na configuração do Spark.
-
-#### Exemplo de `Py4JJavaError`
-
-```python
-# src/io_utils/data_handler.py
-# outros imports...
-from py4j.protocol import Py4JJavaError
-# ...
-
-
-    # ... dentro do load_pedidos ...
-    def load_pedidos(self, path: str, compression: str, header:bool, sep:str) -> DataFrame:
-        try:
-            schema = self._get_schema_pedidos()
-            df = self.spark.read \
-                .option("compression", compression) \
-                .option("mode", "FAILFAST") \
-                .csv(path, header=header, schema=schema, sep=sep)
-            
-            # Verificação de Dataframe Vazio
-            if df.isEmpty():
-                logger.warning(f"ATENÇÃO: O arquivo em '{path}' foi lido mas não contém registros.")
-            
-            return df        
-        except Py4JJavaError as e:
-            logger.critical(f"Erro Crítico na JVM (possível arquivo corrompido ou erro de memória): {e}")
-            raise e
-
-```
-### Blindando `DataHandler`
-1. **`data_handler.py`**: Acrescente o bloco a seguir logo após o último import:
-```python
-# AnalysisException para o caso de arquivos corrompidos ou problemas de leitura
-from pyspark.sql.utils import AnalysisException
-# Py4JJavaError para capturar erros da JVM
-from py4j.protocol import Py4JJavaError
-import logging
-
-logger = logging.getLogger(__name__)
-
-```
-
-2. **`data_handler.py`**: Substitua completamente o método `load_pedidos` pelo bloco abaixo:
-```python
-    def load_pedidos(self, path: str, compression: str, header:bool, sep:str) -> DataFrame:
-        try:
-            schema = self._get_schema_pedidos()
-            df = self.spark.read \
-                .option("compression", compression) \
-                .option("mode", "FAILFAST") \
-                .csv(path, header=header, schema=schema, sep=sep)
-            
-            # Verificação de Dataframe Vazio
-            if df.isEmpty():
-                logger.warning(f"ATENÇÃO: O arquivo em '{path}' foi lido mas não contém registros.")
-            
-            return df
-
-        except AnalysisException as e:
-            logger.error(f"Erro de IO/Spark: {e}")
-            raise e
-        
-        except Py4JJavaError as e:
-            logger.critical(f"Erro Crítico na JVM (possível arquivo corrompido ou erro de memória): {e}")
-            raise e
+        except PySparkException as e:
+            logger.error(f"Erro de processamento no PySpark [Classe: {e.getErrorClass()}]: {e}")
+            raise LoadPedidosException(f"Erro no motor Spark ao carregar pedidos em '{path}'") from e
 
 ```
 
 ### Blindando `main.py`
 
-Agora que nosso `DataHandler` sabe reportar quando algo dá errado, precisamos garantir que o nosso `main.py` saiba lidar com isso.
+Agora que nosso pacote `io_utils` possui seu próprio módulo de exceções, o `main.py` pode tratar falhas em camadas sem acoplar-se aos detalhes internos da engine:
 
-1. Atualize o `src/main.py` para capturar falhas no pipeline:
+1. Atualize o `src/main.py` para capturar as falhas do pipeline:
 
 ```python
 # src/main.py
 from config.settings import carregar_config, configurar_logging
 from session.spark_session import SparkSessionManager
 from io_utils.data_handler import DataHandler
+from io_utils.exceptions import DataHandlerException, LoadPedidosException
 from processing.transformations import Transformation
 from pipeline.pipeline import Pipeline
+from pyspark.errors import PySparkException
 import logging
 import sys
 
@@ -1788,9 +1866,27 @@ def main():
         pipeline.run(config=config)
 
         logger.info("Pipeline finalizado com sucesso.")
-    except Exception as e:
-        logger.error(f"Erro durante a execução do job: {e}", exc_info=True)
+
+    except LoadPedidosException as e:
+        # 1. Tratamento específico para o dataset crítico de pedidos
+        logger.error(f"Falha no carregamento de pedidos: {e}", exc_info=True)
         sys.exit(1)
+
+    except DataHandlerException as e:
+        # 2. Tratamento genérico para qualquer outra falha de I/O
+        logger.error(f"Erro na camada de leitura/escrita de dados: {e}", exc_info=True)
+        sys.exit(1)
+
+    except PySparkException as e:
+        # 3. Falhas do Spark ocorridas fora da leitura (ex: ações nas transformações)
+        logger.error(f"Erro originado no PySpark [Classe: {e.getErrorClass()}]: {e}", exc_info=True)
+        sys.exit(1)
+
+    except Exception as e:
+        # 4. Última linha de defesa para erros inesperados
+        logger.error(f"Erro inesperado durante a execução do job: {e}", exc_info=True)
+        sys.exit(1)
+
     finally:
         spark.stop()
         logger.info("Spark session encerrada.")
@@ -1807,15 +1903,42 @@ Para ver isso funcionando, vamos quebrar nossa aplicação de propósito.
 1. **Teste de Arquivo Inexistente:**
 Abra o arquivo `config/settings.yaml` e altere a chave `paths.pedidos` para apontar para um arquivo que não existe.
 ```yaml
-pedidos : "./PATH-INVALIDO/data/input/datasets-csv-pedidos/data/pedidos"
+pedidos: "./PATH-INVALIDO/data/input/datasets-csv-pedidos/data/pedidos"
 
 ```
 
-*Observe o log de erro tratado.*
+Execute o pipeline:
+```bash
+spark-submit ./data-engineering-pyspark/src/main.py
 
-
-Após o teste, volte a configuração original, faça o ajuste em `config/settings.yaml`:
 ```
+
+*Observe o log e o encadeamento gracioso de exceções:*
+
+1. **No arquivo de log (`dataeng-pyspark-poo.log`)**, repare como as duas camadas se comunicam:
+   * O `DataHandler` registra o erro técnico com a classe do Spark:
+     ```text
+     ERROR - Erro de análise/metadados no Spark [Classe: PATH_NOT_FOUND]: [PATH_NOT_FOUND] Path does not exist...
+     ```
+   * O `main.py` captura a exceção de domínio `LoadPedidosException`, e no *traceback* o Python exibe a causa original preservada:
+     ```text
+     pyspark.errors.exceptions.captured.AnalysisException: [PATH_NOT_FOUND] Path does not exist...
+
+     The above exception was the direct cause of the following exception:
+
+     io_utils.exceptions.LoadPedidosException: Falha ao carregar pedidos a partir de './PATH-INVALIDO/...'
+     ```
+
+2. **No terminal**, confira o código de saída retornado ao sistema operacional imediatamente após o comando:
+   ```bash
+   echo $?
+
+   ```
+   > **Saída esperada:** `1`<br>
+   > O valor `1` (diferente de zero) comprova que o `sys.exit(1)` sinalizou corretamente ao sistema operacional (e a qualquer orquestrador como Airflow ou Dagster) que o pipeline falhou.
+
+Após o teste, volte a configuração original em `config/settings.yaml`:
+```yaml
 pedidos: "./data-engineering-pyspark/data/input/datasets-csv-pedidos/data/pedidos/"
 
 ```
@@ -1845,7 +1968,7 @@ rm ./data-engineering-pyspark/data/input/datasets-csv-pedidos/data/pedidos/corro
 
 Por que o erro do arquivo corrompido **não** apareceu no `DataHandler`, mesmo com o `try/except` lá dentro?
 
-Por causa da **avaliação preguiçosa**. O `spark.read.csv(...)` não lê nada: ele apenas registra o plano de leitura. O arquivo só é fisicamente aberto quando uma **ação** é disparada — e as ações do nosso pipeline (`show`, `write`, `count`) acontecem depois, dentro de `Transformation` e `Pipeline`. Quando a JVM finalmente tropeça no arquivo corrompido, o `try` do `load_pedidos` já foi encerrado há muito tempo, e quem captura o erro é o `except Exception` do `main.py`.
+Por causa da **avaliação preguiçosa**. O `spark.read.csv(...)` não lê nada: ele apenas registra o plano de leitura. O arquivo só é fisicamente aberto quando uma **ação** é disparada — e as ações do nosso pipeline (`show`, `write`, `count`) acontecem depois, dentro de `Transformation` e `Pipeline`. Quando o Spark finalmente tropeça no arquivo corrompido durante a execução física, o `try` do `load_pedidos` já foi encerrado há muito tempo, e quem captura o erro é o `except PySparkException` do `main.py`.
 
 > E o `df.isEmpty()`? Ele *é* uma ação, mas o Spark o resolve com um `take(1)`: lê o mínimo necessário para achar uma linha e para. Se o arquivo corrompido não for o primeiro da lista, ele nem chega a ser tocado.
 
@@ -1853,29 +1976,28 @@ Lição prática: **`try/except` só protege o que for executado dentro dele**. 
 
 #### Conclusão
 
-Saímos de um pipeline que falhava de forma silenciosa ou ilegível e chegamos a um que falha de forma **previsível, rastreável e limpa**. Três camadas de defesa foram adicionadas:
+Saímos de um pipeline que falhava de forma silenciosa ou ilegível e chegamos a um que falha de forma **previsível, rastreável e limpa**. Duas camadas centrais de defesa foram adicionadas:
 
 | Camada | Onde | O que garante |
 |---|---|---|
-| `mode: FAILFAST` | `data_handler.py` | Dado sujo **não vira `null` silenciosamente** — o processo para na hora. |
-| `except AnalysisException` / `except Py4JJavaError` | `data_handler.py` | O erro ganha **contexto de negócio** ("erro ao ler pedidos") e o nível de log correto (`error` vs. `critical`). |
-| `try/except/finally` | `main.py` | Última linha de defesa: nada escapa sem registro, o `sys.exit(1)` avisa o orquestrador de que o job falhou, e o `finally` garante o `spark.stop()` mesmo em caso de falha. |
+| `DataHandlerException` / `LoadPedidosException` | `io_utils/exceptions.py` | Desacopla o chamador do Spark; traduz falhas técnicas em exceções de negócio preservando o *traceback* original (`from e`). |
+| `try/except/finally` | `main.py` | Última linha de defesa: captura exceções de domínio e do Spark, avisa o orquestrador (`sys.exit(1)`) e garante o `spark.stop()` no `finally`. |
 
-Repare no padrão que usamos em todos os `except` do `DataHandler`: **logar e relançar** (`raise e`).
+Repare no padrão que usamos no `DataHandler`: **logar e relançar encapsulado em exceção de domínio** (`raise ... from e`).
 
 ```python
 except AnalysisException as e:
-    logger.error(f"Erro de IO/Spark: {e}")
-    raise e  # <- não engolir!
+    logger.error(f"Erro de análise/metadados no Spark [Classe: {e.getErrorClass()}]: {e}")
+    raise LoadPedidosException(f"Falha ao carregar pedidos em '{path}'") from e
 
 ```
 
-Isso não é redundância. Tratar um erro **não** significa escondê-lo: significa registrá-lo com contexto e deixá-lo subir para quem tem autoridade para decidir o que fazer. Um `except` que apenas loga e segue em frente é pior do que nenhum `except` — ele transforma uma falha ruidosa em dado corrompido silencioso, que só será descoberto semanas depois pelo time de negócio.
+Isso não é redundância. Tratar um erro **não** significa escondê-lo: significa registrá-lo com contexto técnico, traduzi-lo para o domínio da aplicação e deixá-lo subir para quem tem autoridade para decidir o que fazer. Um `except` que apenas loga e segue em frente é pior do que nenhum `except` — ele transforma uma falha ruidosa em dado corrompido silencioso, que só será descoberto semanas depois pelo time de negócio.
 
 ##### O que levar deste passo
 
-- Falhe cedo (`FAILFAST`) em vez de propagar `null` silencioso.
-- Capture exceções **específicas** (`AnalysisException`, `Py4JJavaError`) antes da genérica — cada uma diz algo diferente sobre *onde* o problema está: planejamento ou execução.
+- Encapsule erros de biblioteca em **exceções customizadas de domínio** (`LoadPedidosException`) com `raise ... from e` para manter o código desacoplado e orientado a objetos.
+- Capture primeiro exceções **específicas** (`AnalysisException`), depois a base do framework (`PySparkException`) — evite acoplar com exceções de infraestrutura legadas como `Py4JJavaError`.
 - Logue **e relance**. `except` não é sinônimo de "ignorar".
 - Um job que falhou precisa **terminar com código de saída diferente de zero**, senão o orquestrador acha que deu tudo certo.
 - Use `finally` para liberar recursos (a sessão Spark) aconteça o que acontecer.
