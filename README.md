@@ -1797,19 +1797,16 @@ class LoadPedidosException(DataHandlerException):
 
 ```
 
-3. Atualize o `src/io_utils/data_handler.py`:
-Importe as exceções do módulo recém-criado e relance os erros capturados do Spark usando **Exception Chaining** (`raise ... from e`, da PEP 3134):
+3. Em `src/io_utils/data_handler.py` importe as exceções do módulo recém-criado :
 
 ```python
-# src/io_utils/data_handler.py
-from pyspark.sql import DataFrame
-from pyspark.errors import PySparkException, AnalysisException
 from io_utils.exceptions import DataHandlerException, LoadPedidosException
-import logging
 
-logger = logging.getLogger(__name__)
+```
 
-# ... restante da classe DataHandler ...
+4. Relance os erros capturados do Spark usando **Exception Chaining** (`raise ... from e`, da PEP 3134):
+
+```python
 
     def load_pedidos(self, path: str, compression: str, header:bool, sep:str) -> DataFrame:
         try:
