@@ -1769,21 +1769,33 @@ from pyspark.errors import AnalysisException, PySparkException
 
 ---
 
-### Blindando `DataHandler`
+### Blindando `DataHandler` com Exceções Customizadas (POO)
 
-Agora consolidamos o tratamento defensivo em `src/io_utils/data_handler.py`, respeitando a ordem do **mais específico ao mais genérico**:
+Até aqui, vimos como capturar as exceções técnicas do Spark (`AnalysisException` e `PySparkException`). No entanto, em um projeto orientado a objetos e bem arquitetado, **o chamador (como o `Pipeline` ou o `main.py`) não deve depender de exceções internas do framework**.
 
-1. **`data_handler.py`**: Atualize os imports no início do arquivo:
+Se no futuro o `DataHandler` mudar a engine de leitura (ou ler de uma API REST ou banco relacional), o chamador não precisará alterar seus blocos `except`. Para resolver isso, criamos **exceções customizadas de domínio** e usamos a técnica de **Exception Chaining** (`raise ... from e`, da PEP 3134), que preserva o *traceback* da causa raiz original.
+
+1. **`data_handler.py`**: Adicione os imports e a hierarquia de exceções no início do arquivo:
 
 ```python
-# Exceções nativas do PySpark (Passo 9)
+# src/io_utils/data_handler.py
+from pyspark.sql import DataFrame
 from pyspark.errors import PySparkException, AnalysisException
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Hierarquia de exceções da camada de I/O
+class DataHandlerException(Exception):
+    """Exceção base para qualquer falha na camada de I/O."""
+    pass
+
+class LoadPedidosException(DataHandlerException):
+    """Lançada especificamente ao falhar o carregamento do dataset de pedidos."""
+    pass
 ```
 
-2. **`data_handler.py`**: Substitua o método `load_pedidos` pelo bloco abaixo:
+2. **`data_handler.py`**: No método `load_pedidos`, capture o erro do Spark e relance empacotado na exceção de domínio:
 
 ```python
     def load_pedidos(self, path: str, compression: str, header:bool, sep:str) -> DataFrame:
@@ -1800,27 +1812,26 @@ logger = logging.getLogger(__name__)
             return df
 
         except AnalysisException as e:
-            # 1. Específico: erros de plano lógico, colunas ou caminho não encontrado
             logger.error(f"Erro de análise/metadados no Spark [Classe: {e.getErrorClass()}]: {e}")
-            raise e
+            # Encapsula o erro técnico na exceção de negócio mantendo o traceback original (from e)
+            raise LoadPedidosException(f"Falha ao carregar pedidos a partir de '{path}'") from e
 
         except PySparkException as e:
-            # 2. Base do framework: qualquer outro erro originado no ecossistema Spark
             logger.error(f"Erro de processamento no PySpark [Classe: {e.getErrorClass()}]: {e}")
-            raise e
+            raise LoadPedidosException(f"Erro no motor Spark ao carregar pedidos em '{path}'") from e
 ```
 
 ### Blindando `main.py`
 
-Agora que nosso `DataHandler` sabe reportar quando algo dá errado, precisamos garantir que o nosso `main.py` saiba lidar com isso.
+Agora que nosso `DataHandler` possui sua própria hierarquia de exceções, o `main.py` pode tratar falhas em camadas sem acoplar-se aos detalhes internos da engine:
 
-1. Atualize o `src/main.py` para capturar falhas no pipeline:
+1. Atualize o `src/main.py` para capturar as falhas do pipeline:
 
 ```python
 # src/main.py
 from config.settings import carregar_config, configurar_logging
 from session.spark_session import SparkSessionManager
-from io_utils.data_handler import DataHandler
+from io_utils.data_handler import DataHandler, DataHandlerException, LoadPedidosException
 from processing.transformations import Transformation
 from pipeline.pipeline import Pipeline
 from pyspark.errors import PySparkException
@@ -1843,12 +1854,27 @@ def main():
         pipeline.run(config=config)
 
         logger.info("Pipeline finalizado com sucesso.")
+
+    except LoadPedidosException as e:
+        # 1. Tratamento específico para o dataset crítico de pedidos
+        logger.error(f"Falha no carregamento de pedidos: {e}", exc_info=True)
+        sys.exit(1)
+
+    except DataHandlerException as e:
+        # 2. Tratamento genérico para qualquer outra falha de I/O
+        logger.error(f"Erro na camada de leitura/escrita de dados: {e}", exc_info=True)
+        sys.exit(1)
+
     except PySparkException as e:
+        # 3. Falhas do Spark ocorridas fora da leitura (ex: ações nas transformações)
         logger.error(f"Erro originado no PySpark [Classe: {e.getErrorClass()}]: {e}", exc_info=True)
         sys.exit(1)
+
     except Exception as e:
+        # 4. Última linha de defesa para erros inesperados
         logger.error(f"Erro inesperado durante a execução do job: {e}", exc_info=True)
         sys.exit(1)
+
     finally:
         spark.stop()
         logger.info("Spark session encerrada.")
@@ -1875,13 +1901,21 @@ spark-submit ./data-engineering-pyspark/src/main.py
 
 ```
 
-*Observe o log e o código de saída do processo:*
+*Observe o log e o encadeamento gracioso de exceções:*
 
-1. **No arquivo de log (`dataeng-pyspark-poo.log`)**, repare como o `pyspark.errors` identificou a falha:
-   ```text
-   ERROR - Erro de análise/metadados no Spark [Classe: PATH_NOT_FOUND]: [PATH_NOT_FOUND] Path does not exist...
-   ```
-   *Note como o framework reportou a classe `PATH_NOT_FOUND` de forma estruturada, sem depender de parsing de texto.*
+1. **No arquivo de log (`dataeng-pyspark-poo.log`)**, repare como as duas camadas se comunicam:
+   * O `DataHandler` registra o erro técnico com a classe do Spark:
+     ```text
+     ERROR - Erro de análise/metadados no Spark [Classe: PATH_NOT_FOUND]: [PATH_NOT_FOUND] Path does not exist...
+     ```
+   * O `main.py` captura a exceção de domínio `LoadPedidosException`, e no *traceback* o Python exibe a causa original preservada:
+     ```text
+     pyspark.errors.exceptions.captured.AnalysisException: [PATH_NOT_FOUND] Path does not exist...
+
+     The above exception was the direct cause of the following exception:
+
+     io_utils.data_handler.LoadPedidosException: Falha ao carregar pedidos a partir de './PATH-INVALIDO/...'
+     ```
 
 2. **No terminal**, confira o código de saída retornado ao sistema operacional imediatamente após o comando:
    ```bash
@@ -1934,22 +1968,23 @@ Saímos de um pipeline que falhava de forma silenciosa ou ilegível e chegamos a
 
 | Camada | Onde | O que garante |
 |---|---|---|
-| `except AnalysisException` / `PySparkException` | `data_handler.py` | O erro ganha **contexto de negócio**, separando falhas de plano lógico/metadados (`AnalysisException`) de outros erros gerais do motor Spark (`PySparkException`). |
-| `try/except/finally` | `main.py` | Última linha de defesa: captura `PySparkException` e `Exception` genérica, avisa o orquestrador (`sys.exit(1)`) e garante o `spark.stop()` no `finally`. |
+| `DataHandlerException` / `LoadPedidosException` | `data_handler.py` | Desacopla o chamador do Spark; traduz falhas técnicas em exceções de negócio preservando o *traceback* original (`from e`). |
+| `try/except/finally` | `main.py` | Última linha de defesa: captura exceções de domínio e do Spark, avisa o orquestrador (`sys.exit(1)`) e garante o `spark.stop()` no `finally`. |
 
-Repare no padrão que usamos em todos os `except` do `DataHandler`: **logar e relançar** (`raise e`).
+Repare no padrão que usamos no `DataHandler`: **logar e relançar encapsulado em exceção de domínio** (`raise ... from e`).
 
 ```python
 except AnalysisException as e:
-    logger.error(f"Erro de IO/Spark: {e}")
-    raise e  # <- não engolir!
+    logger.error(f"Erro de análise/metadados no Spark [Classe: {e.getErrorClass()}]: {e}")
+    raise LoadPedidosException(f"Falha ao carregar pedidos em '{path}'") from e
 
 ```
 
-Isso não é redundância. Tratar um erro **não** significa escondê-lo: significa registrá-lo com contexto e deixá-lo subir para quem tem autoridade para decidir o que fazer. Um `except` que apenas loga e segue em frente é pior do que nenhum `except` — ele transforma uma falha ruidosa em dado corrompido silencioso, que só será descoberto semanas depois pelo time de negócio.
+Isso não é redundância. Tratar um erro **não** significa escondê-lo: significa registrá-lo com contexto técnico, traduzi-lo para o domínio da aplicação e deixá-lo subir para quem tem autoridade para decidir o que fazer. Um `except` que apenas loga e segue em frente é pior do que nenhum `except` — ele transforma uma falha ruidosa em dado corrompido silencioso, que só será descoberto semanas depois pelo time de negócio.
 
 ##### O que levar deste passo
 
+- Encapsule erros de biblioteca em **exceções customizadas de domínio** (`LoadPedidosException`) com `raise ... from e` para manter o código desacoplado e orientado a objetos.
 - Capture primeiro exceções **específicas** (`AnalysisException`), depois a base do framework (`PySparkException`) — evite acoplar com exceções de infraestrutura legadas como `Py4JJavaError`.
 - Logue **e relance**. `except` não é sinônimo de "ignorar".
 - Um job que falhou precisa **terminar com código de saída diferente de zero**, senão o orquestrador acha que deu tudo certo.
