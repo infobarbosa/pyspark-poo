@@ -246,14 +246,14 @@ Vamos simular um problema comum. Imagine que temos um arquivo CSV simples em `da
 
 1. Baixe o arquivo `/tmp/data.csv`:
   ```bash
-  wget -P /tmp https://raw.githubusercontent.com/infobarbosa/pyspark-poo/main/assets/data/data.csv
+  curl -L --output-dir /tmp -O https://raw.githubusercontent.com/infobarbosa/pyspark-poo/main/assets/data/data.csv
 
   ```
 
 2. Baixe o script `infer-schema.py`:
 
   ```bash
-  wget -P /tmp https://raw.githubusercontent.com/infobarbosa/pyspark-poo/main/assets/scripts/infer-schema.py
+  curl -L --output-dir /tmp -O https://raw.githubusercontent.com/infobarbosa/pyspark-poo/main/assets/scripts/infer-schema.py
 
   ```
 
@@ -318,7 +318,7 @@ spark-submit /tmp/infer-schema.py
 1. Baixe o script `schema-definido.py`:
 
   ```bash
-  wget -P /tmp https://raw.githubusercontent.com/infobarbosa/pyspark-poo/main/assets/scripts/schema-definido.py
+  curl -L --output-dir /tmp -O https://raw.githubusercontent.com/infobarbosa/pyspark-poo/main/assets/scripts/schema-definido.py
 
   ```
 
