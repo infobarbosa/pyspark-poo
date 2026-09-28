@@ -294,7 +294,7 @@ percentual_bonus = 0.5
 # O analista João Silva, cujo código era "0101", agora tem o código 101.
 # Ele receberá indevidamente o bônus do diretor!
 print(f"\nCalculando bônus de {percentual_bonus:.0%} para o código '{cod_bonus_diretor}'...")
-df_bonus = df_inferido.withColumn(
+df_bonus = df.withColumn(
     "valor_bonus",
     F.when(F.col("cod_bonus") == cod_bonus_diretor, F.col("salario") * percentual_bonus).otherwise(0)
 )
@@ -1450,9 +1450,14 @@ logger = logging.getLogger(__name__)
         level: INFO
         formatter: padrao
         stream: ext://sys.stdout
+      file:
+        class: logging.FileHandler
+        level: INFO
+        formatter: padrao
+        filename: "dataeng-pyspark-poo.log"
     root:
       level: INFO
-      handlers: [console]
+      handlers: [console, file]
   ```
 
 3. Substitua o conteúdo completo de `main.py` pelo código abaixo:
@@ -1797,14 +1802,17 @@ class LoadPedidosException(DataHandlerException):
 
 ```
 
-3. Em `src/io_utils/data_handler.py` importe as exceções do módulo recém-criado :
+3. Em `src/io_utils/data_handler.py` importe a exceção do módulo recém-criado :
 
 ```python
-from io_utils.exceptions import DataHandlerException, LoadPedidosException
+from io_utils.exceptions import LoadPedidosException
 
 ```
 
 4. Relance os erros capturados do Spark usando **Exception Chaining** (`raise ... from e`, da PEP 3134):
+
+> [!NOTE]
+> No `src/io_utils/data_handler.py`, atualize apenas o método `load_pedidos` com o tratamento de exceções abaixo, mantendo os demais métodos existentes (`load_clientes`, `write_parquet`, etc.) inalterados na classe.
 
 ```python
 
@@ -1869,22 +1877,22 @@ def main():
 
     except LoadPedidosException as e:
         # 1. Tratamento específico para o dataset crítico de pedidos
-        logger.error(f"Falha no carregamento de pedidos: {e}", exc_info=True)
+        logger.exception(f"Falha no carregamento de pedidos: {e}")
         sys.exit(1)
 
     except DataHandlerException as e:
         # 2. Tratamento genérico para qualquer outra falha de I/O
-        logger.error(f"Erro na camada de leitura/escrita de dados: {e}", exc_info=True)
+        logger.exception(f"Erro na camada de leitura/escrita de dados: {e}")
         sys.exit(1)
 
     except PySparkException as e:
         # 3. Falhas do Spark ocorridas fora da leitura (ex: ações nas transformações)
-        logger.error(f"Erro originado no PySpark [Classe: {e.getErrorClass()}]: {e}", exc_info=True)
+        logger.exception(f"Erro originado no PySpark [Classe: {e.getErrorClass()}]: {e}")
         sys.exit(1)
 
     except Exception as e:
         # 4. Última linha de defesa para erros inesperados
-        logger.error(f"Erro inesperado durante a execução do job: {e}", exc_info=True)
+        logger.exception(f"Erro inesperado durante a execução do job: {e}")
         sys.exit(1)
 
     finally:
@@ -2188,7 +2196,7 @@ Este é o arquivo que será exibido quando alguém acessar o repositório.
 6. Construa o pacote:
 
   ```bash
-  python -m build
+  python -m build ./data-engineering-pyspark
 
   ```
 
@@ -2913,13 +2921,13 @@ A saída lista cada teste (graças ao `-v` do `addopts`):
 
   ```
   ============================= test session starts ==============================
-  collected 18 items
+  collected 25 items
 
   tests/integration/test_pipeline.py::TestPipelineOrquestracao::test_le_clientes_com_path_da_config PASSED
   ...
   tests/unit/test_transformations.py::TestAddValorTotalPedidos::test_calcula_valor_unitario_por_quantidade PASSED
   ...
-  ============================== 18 passed in 12.34s =============================
+  ============================== 25 passed in 9.87s ==============================
   ```
 
 Para rodar **apenas** uma camada, selecione pelo diretório:
