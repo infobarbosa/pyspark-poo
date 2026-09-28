@@ -294,7 +294,7 @@ percentual_bonus = 0.5
 # O analista João Silva, cujo código era "0101", agora tem o código 101.
 # Ele receberá indevidamente o bônus do diretor!
 print(f"\nCalculando bônus de {percentual_bonus:.0%} para o código '{cod_bonus_diretor}'...")
-df_bonus = df_inferido.withColumn(
+df_bonus = df.withColumn(
     "valor_bonus",
     F.when(F.col("cod_bonus") == cod_bonus_diretor, F.col("salario") * percentual_bonus).otherwise(0)
 )
@@ -1404,6 +1404,22 @@ A sua aplicação (o ponto de entrada, como main.py ou app.py) é responsável p
 Os seus módulos e pacotes (as "bibliotecas" do seu projeto) nunca devem configurar o logging. Eles devem apenas pedir um logger e usá-lo para enviar mensagens.<br>
 Isso evita que um módulo sobreponha a configuração de outro, garantindo um comportamento uniforme e previsível em todo o projeto.
 
+#### Os Níveis de Log (Severity Levels)
+
+O sistema de logging do Python classifica as mensagens em 5 níveis padrão de severidade. Em engenharia de dados, entender quando usar cada um é essencial para não transformar seus logs em um "mar de ruído" ou, pior, em um "silêncio perigoso":
+
+| Nível | Valor | Quando Usar em Pipelines de Dados | Exemplo no Nosso Projeto |
+| :--- | :---: | :--- | :--- |
+| **`DEBUG`** | 10 | Diagnóstico minucioso para desenvolvimento. Inspecionar DataFrames intermediários, planos de execução física ou variáveis de loop. *(Desativado em produção)* | `logger.debug(f"Plano Catalyst: {df._jdf.queryExecution()}")` |
+| **`INFO`** | 20 | Marcos normais e esperados do fluxo. Confirmação de início/fim de jobs, quantidade de linhas lidas, caminhos de saída salvos. | `logger.info("Pipeline finalizado com sucesso.")` |
+| **`WARNING`** | 30 | Alerta sobre algo inesperado, mas que **não impediu** a continuidade do pipeline. | `logger.warning("Arquivo lido está vazio.")` |
+| **`ERROR`** | 40 | Uma falha impediu a conclusão de uma operação importante, mas o sistema como um todo pode tentar continuar ou tratar o erro. | `logger.error("Falha ao salvar partição no Parquet.")` |
+| **`CRITICAL`** | 50 | Falha catastrófica que inviabiliza todo o ambiente. O processo precisa ser abortado imediatamente. | `logger.critical("Sem memória no cluster (OOM) ou storage inacessível.")` |
+
+> [!TIP]
+> **Como o nível mínimo funciona?**  
+> Se configuramos `level: INFO` no `settings.yaml`, o logger exibirá mensagens `INFO`, `WARNING`, `ERROR` e `CRITICAL`. Todas as mensagens `DEBUG` serão silenciosamente ignoradas pelo Spark/Python, economizando espaço em disco e I/O.
+
 #### A Hierarquia de Loggers
 O módulo `logging` do Python organiza os loggers em uma hierarquia baseada em nomes separados por pontos. Por exemplo, um logger chamado pacote1.modulo1 é filho do logger pacote1, que por sua vez é filho do logger raiz (root).
 
@@ -1450,9 +1466,14 @@ logger = logging.getLogger(__name__)
         level: INFO
         formatter: padrao
         stream: ext://sys.stdout
+      file:
+        class: logging.FileHandler
+        level: INFO
+        formatter: padrao
+        filename: "dataeng-pyspark-poo.log"
     root:
       level: INFO
-      handlers: [console]
+      handlers: [console, file]
   ```
 
 3. Substitua o conteúdo completo de `main.py` pelo código abaixo:
@@ -1622,7 +1643,7 @@ except PySparkException as e:
 
 except Exception as e:
     # 3. Captura genérica: última linha de defesa para erros inesperados
-    logger.error(f"Erro inesperado no pipeline: {e}")
+    logger.exception("Erro inesperado no pipeline.")
     raise
 
 else:
@@ -1638,8 +1659,48 @@ finally:
 #### Boas Práticas em Pipelines de Dados:
 1. **Nunca "engula" erros em silêncio:** Evite `except: pass`. Silenciar exceções mascara problemas graves, gera perda de integridade nos dados e dificulta a auditoria em produção.
 2. **Ordene do mais específico ao mais genérico:** Capture primeiro as exceções especializadas do PySpark (ex: `AnalysisException`, `ParseException`), depois a classe base do framework (`PySparkException`) e, por último, a classe genérica do Python (`Exception`).
-3. **Registre com `logger.error`:** Não use `print()`; registre o traceback e o contexto do erro no logger configurado no Passo 8.
+3. **Registre com `logger.exception` ou `logger.error` (e saiba a diferença):** Não use `print()`. Dentro de blocos `except`, escolha conscientemente se você quer ou não anexar o stack trace completo do erro (veja a explicação aprofundada logo abaixo).
 4. **Relance (`raise`) quando necessário:** Se a integridade dos dados for violada ou uma etapa indispensável quebrar, pare o fluxo imediatamente para não propagar dados corrompidos.
+
+#### 💡 `logger.error` vs `logger.exception`: Qual é a Melhor Prática?
+
+Uma dúvida muito frequente em engenharia de software e de dados é: **quando usar `logger.error` e quando usar `logger.exception`?**
+
+Ambos registram a mensagem com o nível de severidade **ERROR (40)**, mas o comportamento de diagnóstico é bem diferente:
+
+* **`logger.exception("Mensagem")`**:
+  * **O que faz:** Registra a mensagem no nível `ERROR` e **anexa automaticamente o *traceback* (stack trace)** completo da exceção ativa.
+  * **Equivalência técnica:** Chamar `logger.error("Mensagem", exc_info=True)`.
+  * **Regra de Linters modernos (Ruff / Flake8):** As regras [G201 / LOG007](https://docs.astral.sh/ruff/rules/error-with-exc-info/) consideram `logger.error(..., exc_info=True)` um anti-pattern (*code smell*) redundante e recomendam explicitamente o uso de `logger.exception(...)`.
+  * **Quando usar:** 
+    1. No ponto de entrada da aplicação (como no `main.py`), onde a exceção é capturada e encerra o job (`sys.exit(1)`). Sem o `logger.exception`, o histórico detalhado da falha seria perdido.
+    2. Em falhas técnicas graves, erros inesperados ou bugs de código em que os engenheiros que receberem o alerta (PagerDuty, CloudWatch, Datadog) precisarão ver exatamente em qual linha e módulo o erro estourou.
+  * **Atenção:** Só deve ser chamado **dentro de um bloco `except`**. Se chamado fora dele, o Python registrará `NoneType: None` no traceback.
+
+* **`logger.error("Mensagem")`**:
+  * **O que faz:** Registra uma mensagem no nível `ERROR` em **uma única linha de texto limpa**, sem stack trace.
+  * **Quando usar:**
+    1. Erros conhecidos de negócio ou validações funcionais onde você quer sinalizar uma falha, mas onde o stack trace do Python não agrega valor e apenas poluiria os arquivos de log (ex: *"Arquivo de clientes não encontrado no bucket. Abortando etapa."*).
+    2. Em camadas internas (como faremos no `data_handler.py`), quando você apenas registra um log contextual antes de relançar a exceção (`raise LoadPedidosException(...) from e`). Nesse caso, o stack trace será preservado pela própria exceção chained e registrado na borda da aplicação.
+    3. Fora de blocos `except`, para sinalizar qualquer condição de erro lógica.
+
+| Aspecto | `logger.exception(...)` | `logger.error(...)` |
+| :--- | :--- | :--- |
+| **Nível de Severidade** | `ERROR` (40) | `ERROR` (40) |
+| **Gera Traceback (Stack Trace)?** | **Sim**, automaticamente (`exc_info=True`) | **Não** por padrão (apenas o texto) |
+| **Onde pode ser chamado?** | **Apenas dentro de blocos `except`** | Em qualquer lugar do código |
+| **Caso de Uso Típico** | Borda da aplicação (`main.py`), falhas técnicas e exceções inesperadas | Validações de negócio, camadas intermediárias com `raise ... from` ou logs de erro simples |
+
+> [!TIP]
+> **Evite mensagens redundantes com `logger.exception`!**  
+> Como o `logger.exception` já anexa o traceback completo (e a última linha do traceback sempre contém a mensagem da exceção original), evite concatenar `{e}` na string:
+> ```python
+> # ❌ Redundante (a mensagem de erro aparecerá duas vezes no log):
+> logger.exception(f"Erro capturado no pipeline: {e}")
+>
+> # ✅ Idiomático e objetivo (o detalhe técnico já estará no traceback):
+> logger.exception("Falha técnica durante a execução do pipeline de pedidos.")
+> ```
 
 ---
 
@@ -1797,14 +1858,17 @@ class LoadPedidosException(DataHandlerException):
 
 ```
 
-3. Em `src/io_utils/data_handler.py` importe as exceções do módulo recém-criado :
+3. Em `src/io_utils/data_handler.py` importe a exceção do módulo recém-criado :
 
 ```python
-from io_utils.exceptions import DataHandlerException, LoadPedidosException
+from io_utils.exceptions import LoadPedidosException
 
 ```
 
 4. Relance os erros capturados do Spark usando **Exception Chaining** (`raise ... from e`, da PEP 3134):
+
+> [!NOTE]
+> No `src/io_utils/data_handler.py`, atualize apenas o método `load_pedidos` com o tratamento de exceções abaixo, mantendo os demais métodos existentes (`load_clientes`, `write_parquet`, etc.) inalterados na classe.
 
 ```python
 
@@ -1869,22 +1933,22 @@ def main():
 
     except LoadPedidosException as e:
         # 1. Tratamento específico para o dataset crítico de pedidos
-        logger.error(f"Falha no carregamento de pedidos: {e}", exc_info=True)
+        logger.exception(f"Falha no carregamento de pedidos: {e}")
         sys.exit(1)
 
     except DataHandlerException as e:
         # 2. Tratamento genérico para qualquer outra falha de I/O
-        logger.error(f"Erro na camada de leitura/escrita de dados: {e}", exc_info=True)
+        logger.exception(f"Erro na camada de leitura/escrita de dados: {e}")
         sys.exit(1)
 
     except PySparkException as e:
         # 3. Falhas do Spark ocorridas fora da leitura (ex: ações nas transformações)
-        logger.error(f"Erro originado no PySpark [Classe: {e.getErrorClass()}]: {e}", exc_info=True)
+        logger.exception(f"Erro originado no PySpark [Classe: {e.getErrorClass()}]: {e}")
         sys.exit(1)
 
     except Exception as e:
         # 4. Última linha de defesa para erros inesperados
-        logger.error(f"Erro inesperado durante a execução do job: {e}", exc_info=True)
+        logger.exception(f"Erro inesperado durante a execução do job: {e}")
         sys.exit(1)
 
     finally:
@@ -2188,7 +2252,7 @@ Este é o arquivo que será exibido quando alguém acessar o repositório.
 6. Construa o pacote:
 
   ```bash
-  python -m build
+  python -m build ./data-engineering-pyspark
 
   ```
 
@@ -2913,13 +2977,13 @@ A saída lista cada teste (graças ao `-v` do `addopts`):
 
   ```
   ============================= test session starts ==============================
-  collected 18 items
+  collected 25 items
 
   tests/integration/test_pipeline.py::TestPipelineOrquestracao::test_le_clientes_com_path_da_config PASSED
   ...
   tests/unit/test_transformations.py::TestAddValorTotalPedidos::test_calcula_valor_unitario_por_quantidade PASSED
   ...
-  ============================== 18 passed in 12.34s =============================
+  ============================== 25 passed in 9.87s ==============================
   ```
 
 Para rodar **apenas** uma camada, selecione pelo diretório:
