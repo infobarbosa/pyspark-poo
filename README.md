@@ -2770,7 +2770,7 @@ O `DataHandler` lê e escreve arquivos. Mas **não** queremos depender dos datas
   import os
   import pytest
   from pyspark.sql.types import (
-      ArrayType, FloatType, LongType, StringType, StructField, StructType,
+      ArrayType, FloatType, LongType, StructField, StructType,
   )
 
   from io_utils.data_handler import DataHandler
