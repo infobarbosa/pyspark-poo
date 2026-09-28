@@ -2088,7 +2088,7 @@ Na raiz do seu projeto, crie um arquivo chamado `requirements.txt`.
 
   ```
   # requirements.txt
-  pyspark==4.1.1
+  pyspark==4.2.0
   pyyaml==6.0.3
 
   ```
@@ -2115,7 +2115,7 @@ Para manter nosso código limpo, legível e livre de erros comuns, vamos usar du
 
   ```
   # requirements.txt
-  pyspark==4.1.1
+  pyspark==4.2.0
   pyyaml==6.0.3
   ruff==0.12.9
   black==25.1.0
@@ -2152,143 +2152,234 @@ Adotar essas ferramentas torna o código mais profissional e fácil de manter, e
 
 ## Passo 12: Empacotamento da Aplicação para Distribuição
 
-O passo final da jornada de um engenheiro de software é tornar sua aplicação distribuível. Em vez de pedir para alguém clonar seu repositório e executar um script, vamos empacotar nosso pipeline em um formato que pode ser instalado com `pip` e executado com um simples comando no terminal.
+O passo final da jornada de um engenheiro de software é tornar sua aplicação distribuível. Em vez de pedir para que outro engenheiro ou o orquestrador (Airflow, Dagster, Databricks) clone seu repositório Git e rode scripts soltos, vamos empacotar nosso pipeline em um formato padronizado de mercado: o **Wheel (`.whl`)**.
 
-**1. Crie o arquivo `pyproject.toml`:**
+---
 
-Este é o arquivo de configuração padrão para projetos Python modernos. Crie-o na raiz do seu projeto.
+### 💡 Por que empacotamos aplicações PySpark em `.whl`?
 
-  ```bash
-  touch ./data-engineering-pyspark/pyproject.toml
+No desenvolvimento local, seu código roda no mesmo processo. Mas em um ambiente de produção real (AWS EMR, Google Cloud Dataproc, Kubernetes ou Databricks), o Spark opera em uma **arquitetura distribuída**:
+* **Driver:** A máquina que orquestra a aplicação e executa o script inicial (`main.py`).
+* **Workers (Executores):** Dezenas ou centenas de nós que realizam o processamento pesado e paralelo das partições de dados.
 
+Os nós executores **não possuem seu código instalado localmente nem compartilham seu disco**. Quando passamos nosso código empacotado via `--py-files pacote.whl` no comando `spark-submit`, o Spark distribui automaticamente o pacote binário para todos os executores via rede (*broadcast*), injetando seus módulos no `sys.path` de cada JVM/Python Worker sem a necessidade de instalar nada com `pip` nó por nó.
+
+> [!NOTE]
+> **No mercado atual (Databricks Workflows):**  
+> Plataformas modernas de dados utilizam diretamente o conceito de **Python Wheel Task**. Você faz o upload do `.whl` gerado pelo seu pipeline de CI/CD para o storage e o orquestrador da nuvem instancia o job diretamente a partir do entrypoint do pacote.
+
+---
+
+### 1. Organizando o Namespace do Pacote (Evitando *Namespace Pollution*)
+
+Até o Passo 11, organizamos nossos módulos (`config`, `io_utils`, `processing`, `session`, `pipeline`) diretamente dentro da pasta `src/`. No desenvolvimento diário, o Python encontra tudo sem problemas.
+
+Contudo, ao construir um pacote distribuível (`.whl`), se deixarmos essas pastas soltas na raiz de `src/`, o instalador do Python (`pip`) as colocaria diretamente na raiz do `site-packages` global. Se outra biblioteca qualquer também possuir um módulo chamado `config` ou `session`, haverá uma colisão de nomes catastrófica (**namespace collision**).
+
+A boa prática consolidada de Engenharia de Software é agrupar todos os módulos sob uma pasta raiz que represente o pacote: **`data_engineering_pyspark`**.
+
+Execute os comandos abaixo para organizar os diretórios:
+
+```bash
+# 1. Cria a pasta raiz do pacote com seu arquivo de inicialização
+mkdir -p ./data-engineering-pyspark/src/data_engineering_pyspark
+touch ./data-engineering-pyspark/src/data_engineering_pyspark/__init__.py
+
+# 2. Move os módulos do projeto para dentro do namespace do pacote
+mv ./data-engineering-pyspark/src/config ./data-engineering-pyspark/src/data_engineering_pyspark/
+mv ./data-engineering-pyspark/src/io_utils ./data-engineering-pyspark/src/data_engineering_pyspark/
+mv ./data-engineering-pyspark/src/processing ./data-engineering-pyspark/src/data_engineering_pyspark/
+mv ./data-engineering-pyspark/src/session ./data-engineering-pyspark/src/data_engineering_pyspark/
+mv ./data-engineering-pyspark/src/pipeline ./data-engineering-pyspark/src/data_engineering_pyspark/
+```
+
+Agora, atualize os imports em `src/main.py` para refletir o novo namespace:
+
+```python
+# src/main.py
+import sys
+import logging
+from data_engineering_pyspark.config.settings import carregar_config, configurar_logging
+from data_engineering_pyspark.session.spark_session import SparkSessionManager
+from data_engineering_pyspark.io_utils.data_handler import DataHandler
+from data_engineering_pyspark.processing.transformations import Transformation
+from data_engineering_pyspark.pipeline.pipeline import Pipeline
+from data_engineering_pyspark.io_utils.exceptions import DataHandlerException, LoadPedidosException
+from pyspark.errors import PySparkException
+
+logger = logging.getLogger(__name__)
+
+def main():
+    config = carregar_config()
+    configurar_logging(config["logging"])
+
+    logger.info("Iniciando a aplicação Spark...")
+    spark = SparkSessionManager.get_spark_session(config["spark"]["app_name"])
+
+    try:
+        data_handler = DataHandler(spark=spark)
+        transformer = Transformation()
+        pipeline = Pipeline(data_handler=data_handler, transformer=transformer)
+        pipeline.run(config=config)
+        logger.info("Pipeline finalizado com sucesso.")
+
+    except LoadPedidosException as e:
+        logger.exception(f"Falha no carregamento de pedidos: {e}")
+        sys.exit(1)
+
+    except DataHandlerException as e:
+        logger.exception(f"Erro na camada de leitura/escrita de dados: {e}")
+        sys.exit(1)
+
+    except PySparkException as e:
+        logger.exception(f"Erro originado no PySpark [Classe: {e.getErrorClass()}]: {e}")
+        sys.exit(1)
+
+    except Exception as e:
+        logger.exception(f"Erro inesperado durante a execução do job: {e}")
+        sys.exit(1)
+
+    finally:
+        spark.stop()
+        logger.info("Spark session encerrada.")
+
+if __name__ == "__main__":
+    main()
+```
+
+Atualize também os imports nos arquivos internos que referenciam outros módulos do projeto:
+
+* Em `src/data_engineering_pyspark/pipeline/pipeline.py`, atualize os imports do `DataHandler` e `Transformation`:
+  ```python
+  from data_engineering_pyspark.io_utils.data_handler import DataHandler
+  from data_engineering_pyspark.processing.transformations import Transformation
+  ```
+* Em `src/data_engineering_pyspark/io_utils/data_handler.py`, atualize o import da exceção:
+  ```python
+  from data_engineering_pyspark.io_utils.exceptions import LoadPedidosException
   ```
 
-**2. Adicione o conteúdo de configuração:**
+---
 
-Copie o seguinte conteúdo para o seu `pyproject.toml`. Ele define o nome do nosso pacote, a versão, as dependências e, o mais importante, um *script de ponto de entrada*.
+### 2. O Arquivo de Configuração do Pacote: `pyproject.toml` (PEP 517 / 518 / 621)
 
-  ```toml
-  # pyproject.toml
-  [build-system]
-  requires = ["setuptools>=61.0"]
-  build-backend = "setuptools.build_meta"
+O `pyproject.toml` é o padrão canônico da comunidade Python para metadados e empacotamento, substituindo os antigos `setup.py` e `setup.cfg`.
 
-  [project]
-  name = "dataeng_pyspark_data_pipeline"
-  version = "0.1.0"
-  authors = [
-    { name="infobarbosa", email="infobarbosa@gmail.com" },
-  ]
-  description = "Um pipeline de dados com PySpark estruturado com boas práticas de engenharia de software."
-  readme = "README.md"
-  requires-python = ">=3.8"
-  license = "MIT"
-  classifiers = [
-      "Programming Language :: Python :: 3",
-      "Operating System :: OS Independent",
-  ]
-  dependencies = [
-      "pyspark==4.1.1",
-      "pyyaml==6.0.3"
-  ]
+Crie ou atualize o arquivo `./data-engineering-pyspark/pyproject.toml`:
 
-  [project.optional-dependencies]
-  dev = [
-      "ruff==0.12.9",
-      "black==25.1.0",
-      "build==1.3.0"
-  ]
+```toml
+# pyproject.toml
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
 
-  [project.scripts]
-  run-data-pipeline = "main:main"
+[project]
+name = "data_engineering_pyspark"
+version = "0.1.0"
+authors = [
+  { name="Barbosa", email="infobarbosa@yahoo.com.br" },
+]
+description = "Pipeline de Engenharia de Dados com PySpark estruturado com boas práticas de Engenharia de Software."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "pyspark>=4.2.0,<5.0.0",
+    "pyyaml>=6.0.2",
+]
 
-  [tool.setuptools]
-  package-dir = {"" = "src"}
-  packages = {find = {where = ["src"]}}
+[project.optional-dependencies]
+dev = [
+    "ruff==0.12.9",
+    "black==25.1.0",
+    "build==1.3.0",
+    "pytest==8.4.1",
+    "pytest-cov==6.0.0",
+]
 
-  ```
+[project.scripts]
+run-data-pipeline = "main:main"
 
-3. Crie um arquivo `MANIFEST.in`:
+[tool.setuptools.packages.find]
+where = ["src"]
 
-  - O arquivo:
-  ```bash
-  touch ./data-engineering-pyspark/MANIFEST.in
+[tool.setuptools.package-data]
+"*" = ["*.yaml"]
 
-  ```
+[tool.pytest.ini_options]
+pythonpath = ["src", "src/data_engineering_pyspark"]
+testpaths = ["tests"]
+addopts = "-v"
+```
 
-  - O conteúdo:
-  ```
-  include requirements.txt
-  include README.md
+> [!TIP]
+> **Por que usar ranges (`>=4.2.0,<5.0.0`) em vez de fixar com `==` no `pyproject.toml`?**  
+> Em pacotes distribuíveis, fixar com `==` é uma má prática porque impede que o pacote seja instalado em ambientes que possuam uma versão patch compatível (ex: 4.2.1) e quebra a compatibilidade com ambientes de nuvem. Para congelar versões exatas em ambientes de desenvolvimento e CI, utilizamos o `requirements.txt`.
 
-  ```
+---
 
-4. Crie o arquivo `README.md`:
+### 3. Crie o arquivo `README.md` do Pacote
 
-Este é o arquivo que será exibido quando alguém acessar o repositório.
-  ```bash
-  echo "[DATAENG] Meu projeto bem estruturado de dados com PySpark" > ./data-engineering-pyspark/README.md
+Este arquivo documenta o pacote gerado e é exigido pelo build:
 
-  ```
+```bash
+echo "# Data Engineering PySpark" > ./data-engineering-pyspark/README.md
+```
 
-5. Adicione o pacote `build` a `requirements.txt`:
-  - Configurando o arquivo:
+---
 
-    ```
-    # requirements.txt
-    pyspark==4.1.1
-    pyyaml==6.0.3
-    ruff==0.12.9
-    black==25.1.0
-    build==1.3.0
-    ```
+### 4. Adicione o pacote `build` a `requirements.txt`
 
-  - Instalando:
-    ```bash
-    pip install -r ./data-engineering-pyspark/requirements.txt
+Certifique-se de que a ferramenta `build` está instalada no seu ambiente virtual:
 
-    ```
+```bash
+pip install build==1.3.0
+```
 
-6. Construa o pacote:
+---
 
-  ```bash
-  python -m build ./data-engineering-pyspark
+### 5. Construindo o Pacote (`python -m build`)
 
-  ```
+Com a ferramenta canônica `build` instalada no seu `.venv`, gere a distribuição:
 
-Você verá que um novo diretório `dist/` foi criado, contendo o arquivo `.whl` (Wheel).
+```bash
+python -m build ./data-engineering-pyspark
+```
 
-7. Instale e execute sua aplicação:
+Você verá que um diretório `dist/` foi gerado dentro de `data-engineering-pyspark/` contendo:
+* **`.whl` (Wheel):** O binário pré-construído pronto para distribuição.
+* **`.tar.gz` (Source Distribution - sdist):** O código-fonte compactado com seus metadados.
 
-Agora, para testar, você pode instalar sua própria aplicação como se fosse qualquer outra biblioteca.
+Verifique os arquivos gerados:
+```bash
+ls -lh ./data-engineering-pyspark/dist/
+```
 
-  - Desinstalando a versão anterior se existir
-    ```bash
-    # Desinstale a versão de desenvolvimento se já existir
-    pip uninstall dataeng_pyspark_data_pipeline -y
+---
 
-    ```
+### 6. Executando Diretamente no PySpark via `--py-files`
 
-  - Instalando a versão distribuída
-    ```bash
-    # Instala o pacote que acabamos de criar
-    pip install ./data-engineering-pyspark/dist/*.whl
+Agora vamos submeter nossa aplicação ao Spark, fornecendo o pacote Wheel diretamente através da flag `--py-files`:
 
-    ```
+```bash
+spark-submit --master "local[*]" \
+  --py-files ./data-engineering-pyspark/dist/data_engineering_pyspark-0.1.0-py3-none-any.whl \
+  ./data-engineering-pyspark/src/main.py
+```
 
-    [OPCIONAL] - Caso tenha instado antes e precise forçar a reinstalação:
-    ```
-    pip install --force-reinstall ./data-engineering-pyspark/dist/dataeng_pyspark_data_pipeline-0.1.0-py3-none-any.whl
+> [!TIP]
+> **Cadê o `pip install`?**  
+> Repare que **não** precisamos executar `pip install` no ambiente local antes de rodar o `spark-submit`! Essa é justamente a vantagem do `--py-files`: em vez de depender de instalações locais prévias, o Spark injeta o arquivo `.whl` dinamicamente no Driver e em todos os nós Executores do cluster.
 
-    ```
+---
 
-  - Executando a aplicação
-    ```bash
-    spark-submit --master "local[*]" \
-      --py-files ./data-engineering-pyspark/dist/dataeng_pyspark_data_pipeline-0.1.0-py3-none-any.whl \
-      ./data-engineering-pyspark/src/main.py
-
-    ```
+> [!NOTE]
+> **🚀 No Radar do Mercado: `uv` (Astral)**  
+> Nos times mais modernos de engenharia de dados (2024–2026), a ferramenta **`uv`** (escrita em Rust pela Astral) tem se tornado o padrão do ecossistema Python. Ela substitui `pip`, `virtualenv`, `pip-tools` e `build` com velocidade até 100x superior. Em pipelines CI/CD com `uv`, o build é tão simples quanto executar `uv build`.
 
 ## Passo 13: Testes Automatizados
 
@@ -2316,7 +2407,7 @@ Nem todo teste é igual. Vamos organizar nossa suíte em duas camadas:
 - Atualize o `requirements.txt`:
   ```
   # requirements.txt
-  pyspark==4.1.1
+  pyspark==4.2.0
   pyyaml==6.0.3
   ruff==0.12.9
   black==25.1.0
@@ -2369,14 +2460,14 @@ Ao final, a árvore ficará assim:
 
 ### 13-D. Configure o pytest (no `pyproject.toml`)
 
-Sem configuração, o `import` das nossas classes (`from processing.transformations import ...`) falharia, porque o código fica em `src/`. Em vez de criar um novo arquivo, vamos **centralizar** a configuração no `pyproject.toml` que você já criou no Passo 12, adicionando a seção `[tool.pytest.ini_options]`.
+Sem configuração, o `import` das nossas classes falharia, porque o código fica em `src/`. Em vez de criar um novo arquivo, centralizamos a configuração no `pyproject.toml` que você configurou no Passo 12.
 
-- Edite o `pyproject.toml` (criado no Passo 12) e **adicione ao final** a seção `[tool.pytest.ini_options]`:
+- Se ainda não adicionou no Passo 12, edite o `pyproject.toml` e adicione ao final a seção `[tool.pytest.ini_options]`:
 
   ```toml
-  # pyproject.toml (adicione ao final)
+  # pyproject.toml (adicione ao final se ainda não estiver presente)
   [tool.pytest.ini_options]
-  pythonpath = ["src"]
+  pythonpath = ["src", "src/data_engineering_pyspark"]
   testpaths = ["tests"]
   markers = [
       "unit: Testes unitários isolados (sem I/O externo)",
@@ -2386,7 +2477,7 @@ Sem configuração, o `import` das nossas classes (`from processing.transformati
   ```
 
 O que cada opção faz:
-- **`pythonpath`** — adiciona `src/` ao caminho de import. É por isso que escrevemos `from processing.transformations import Transformation` (e **não** `from src.processing...`).
+- **`pythonpath`** — adiciona `src/` e `src/data_engineering_pyspark/` ao caminho de import. Isso permite flexibilidade total: você pode importar tanto pelo namespace completo (`from data_engineering_pyspark.processing.transformations import Transformation`) quanto pelo formato direto (`from processing.transformations import Transformation`), garantindo compatibilidade contínua.
 - **`testpaths`** — onde o pytest procura testes.
 - **`markers`** — rótulos para categorizar testes (ex.: rodar só os unitários com `pytest -m unit`).
 - **`addopts`** — opções sempre aplicadas (aqui, saída detalhada).
