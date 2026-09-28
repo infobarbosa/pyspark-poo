@@ -1436,26 +1436,12 @@ logger = logging.getLogger(__name__)
 
   ```python
   # src/config/settings.py
-  from pathlib import Path
   import yaml
   import logging.config
 
-  def carregar_config(path: str | None = None) -> dict:
-      """Carrega o arquivo YAML de configuração.
-
-      Ordem de resolução:
-      1. Caminho explícito fornecido por argumento
-      2. 'settings.yaml' na raiz de execução (quando distribuído via spark-submit --files)
-      3. './data-engineering-pyspark/config/settings.yaml' (desenvolvimento local na IDE)
-      """
-      if path:
-          caminho = Path(path)
-      elif Path("settings.yaml").exists():
-          caminho = Path("settings.yaml")
-      else:
-          caminho = Path("./data-engineering-pyspark/config/settings.yaml")
-
-      with open(caminho, 'r', encoding='utf-8') as file:
+  def carregar_config(path: str = "./data-engineering-pyspark/config/settings.yaml") -> dict:
+      """Carrega o arquivo YAML."""
+      with open(path, 'r') as file:
           return yaml.safe_load(file)
 
   def configurar_logging(config_logging: dict):
@@ -2272,7 +2258,10 @@ Atualize também os imports nos arquivos internos que referenciam outros módulo
   ```python
   from data_engineering_pyspark.io_utils.exceptions import LoadPedidosException
   ```
-* Em `src/data_engineering_pyspark/config/settings.py`, garanta que a função `carregar_config` utilize a resolução dinâmica com fallback (suportando a injeção via `--files` do Spark e o desenvolvimento local na IDE):
+* **Ajuste em `settings.py` para suportar execução distribuída:**  
+  Vamos precisar fazer um ajuste importante no arquivo `src/data_engineering_pyspark/config/settings.py`. Até o momento, a função `carregar_config` utilizava o caminho fixo local `"./data-engineering-pyspark/config/settings.yaml"`. Isso atendeu muito bem o desenvolvimento até aqui, mas agora que vamos empacotar nossa biblioteca em um arquivo `.whl`, ela deve estar preparada para rodar em clusters (como Databricks ou EMR) onde o arquivo de configuração é entregue externamente pelo Spark (via flag `--files`), ficando disponível diretamente na raiz de execução (`settings.yaml`).
+
+  Substitua o conteúdo de `src/data_engineering_pyspark/config/settings.py` pelo código abaixo para tornar o carregamento resiliente e compatível com clusters e com a IDE local:
   ```python
   from pathlib import Path
   import yaml
