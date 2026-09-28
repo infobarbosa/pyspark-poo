@@ -2258,6 +2258,38 @@ Atualize também os imports nos arquivos internos que referenciam outros módulo
   ```python
   from data_engineering_pyspark.io_utils.exceptions import LoadPedidosException
   ```
+* **Ajuste em `settings.py` para suportar execução distribuída:**  
+  Vamos precisar fazer um ajuste importante no arquivo `src/data_engineering_pyspark/config/settings.py`. Até o momento, a função `carregar_config` utilizava o caminho fixo local `"./data-engineering-pyspark/config/settings.yaml"`. Isso atendeu muito bem o desenvolvimento até aqui, mas agora que vamos empacotar nossa biblioteca em um arquivo `.whl`, ela deve estar preparada para rodar em clusters (como Databricks ou EMR) onde o arquivo de configuração é entregue externamente pelo Spark (via flag `--files`), ficando disponível diretamente na raiz de execução (`settings.yaml`).
+
+  Substitua o conteúdo de `src/data_engineering_pyspark/config/settings.py` pelo código abaixo para tornar o carregamento resiliente e compatível com clusters e com a IDE local:
+  ```python
+  from pathlib import Path
+  import yaml
+  import logging.config
+
+  def carregar_config(path: str | None = None) -> dict:
+      """Carrega o arquivo YAML de configuração.
+
+      Ordem de resolução:
+      1. Caminho explícito fornecido por argumento
+      2. 'settings.yaml' na raiz de execução (quando distribuído via spark-submit --files)
+      3. './data-engineering-pyspark/config/settings.yaml' (desenvolvimento local na IDE)
+      """
+      if path:
+          caminho = Path(path)
+      elif Path("settings.yaml").exists():
+          caminho = Path("settings.yaml")
+      else:
+          caminho = Path("./data-engineering-pyspark/config/settings.yaml")
+
+      with open(caminho, 'r', encoding='utf-8') as file:
+          return yaml.safe_load(file)
+
+  def configurar_logging(config_logging: dict):
+      """Aplica a configuração de logging lida do YAML."""
+      logging.config.dictConfig(config_logging)
+      logging.getLogger(__name__).info("Logging configurado com sucesso via YAML.")
+  ```
 
 ---
 
@@ -2306,9 +2338,6 @@ run-data-pipeline = "main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.setuptools.package-data]
-"*" = ["*.yaml"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src", "src/data_engineering_pyspark"]
@@ -2361,19 +2390,29 @@ ls -lh ./data-engineering-pyspark/dist/
 
 ---
 
-### 6. Executando Diretamente no PySpark via `--py-files`
+### 6. Executando Diretamente no PySpark via `--py-files` e `--files`
 
-Agora vamos submeter nossa aplicação ao Spark, fornecendo o pacote Wheel diretamente através da flag `--py-files`:
+Agora vamos submeter nossa aplicação ao Spark, fornecendo o pacote Wheel diretamente através da flag `--py-files` e o arquivo de configuração através da flag `--files`:
 
 ```bash
 spark-submit --master "local[*]" \
   --py-files ./data-engineering-pyspark/dist/data_engineering_pyspark-0.1.0-py3-none-any.whl \
+  --files ./data-engineering-pyspark/config/settings.yaml \
   ./data-engineering-pyspark/src/main.py
 ```
 
 > [!TIP]
 > **Cadê o `pip install`?**  
 > Repare que **não** precisamos executar `pip install` no ambiente local antes de rodar o `spark-submit`! Essa é justamente a vantagem do `--py-files`: em vez de depender de instalações locais prévias, o Spark injeta o arquivo `.whl` dinamicamente no Driver e em todos os nós Executores do cluster.
+
+> [!NOTE]
+> **⚙️ Por que o `settings.yaml` não vai dentro do `.whl`? (The Twelve-Factor App)**  
+> Você deve ter notado que injetamos o arquivo de configuração através da flag `--files` em vez de empacotá-lo dentro do Wheel. Essa é uma **boa prática mandatória em pipelines modernos de Engenharia de Dados** (Princípio III do *The Twelve-Factor App: Configurações*):
+> 
+> 1. **Código Imutável vs. Configuração Mutável:** O código empacotado no `.whl` é estritamente imutável. Ele é compilado apenas uma vez pela esteira de CI/CD e promovido de forma idêntica entre os ambientes de **Desenvolvimento**, **Homologação** e **Produção**.
+> 2. **Separação por Ambiente:** Cada ambiente possui seus próprios parâmetros (endereços de brokers Kafka, buckets S3/Data Lake, credenciais e níveis de log). Se o YAML estivesse dentro do `.whl`, teríamos que gerar um pacote `.whl` diferente para cada ambiente — o que viola o princípio de rastreabilidade e imutabilidade de artefatos.
+> 3. **Como o Spark entrega o arquivo:** Ao utilizarmos `--files ./data-engineering-pyspark/config/settings.yaml` (ou apontando para `s3://meu-bucket/config/settings-prod.yaml` em produção), o Spark envia o arquivo para a máquina do Driver e o disponibiliza na raiz de trabalho (`./settings.yaml`).
+> 4. **Resolução no Código:** Nossa função `carregar_config()` no `settings.py` verifica primeiramente se existe um `settings.yaml` na raiz de execução. Se existir (cenário do cluster via `--files`), ela o utiliza; caso contrário, recorre ao caminho local de desenvolvimento. Dessa forma, seu código funciona perfeitamente tanto no VS Code local quanto em clusters gerenciados (EMR, Databricks, GCP Dataproc ou Kubernetes).
 
 ---
 
@@ -2720,7 +2759,7 @@ O `DataHandler` lê e escreve arquivos. Mas **não** queremos depender dos datas
   import os
   import pytest
   from pyspark.sql.types import (
-      ArrayType, FloatType, LongType, StringType, StructField, StructType,
+      ArrayType, FloatType, LongType, StructField, StructType,
   )
 
   from io_utils.data_handler import DataHandler
