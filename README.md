@@ -2109,44 +2109,117 @@ Na raiz do seu projeto, crie um arquivo chamado `requirements.txt`.
 
 ## Passo 11: Qualidade do Código com Linter e Formatador
 
-Para manter nosso código limpo, legível e livre de erros comuns, vamos usar duas ferramentas padrão da indústria: `ruff` (linter) e `black` (formatador).
+No dia a dia da Engenharia de Dados, é muito comum encontrar códigos funcionais, mas que acumulam "dívida técnica invisível": imports esquecidos, variáveis que nunca foram utilizadas, construções frágeis e estilos inconsistentes. Em ambientes de produção — onde jobs Spark processam grandes volumes e operam 24/7 —, esse tipo de descuido gera falhas difíceis de rastrear e discussões subjetivas em revisões de código.
 
-1. Adicione as ferramentas ao `requirements.txt`:
+Para elevar nosso pipeline ao padrão de **Engenharia de Software profissional**, estabelecemos um *Quality Gate* (portão de qualidade) automatizado antes de empacotar a aplicação e criar os testes. Para isso, combinamos duas ferramentas consagradas que desempenham papéis complementares:
 
+* **Formatador (`black`) — Cuida da *Forma* (Estética):**  
+  Conhecido como o formatador "intransigente" (*The Uncompromising Code Formatter*), o `black` reescreve automaticamente os arquivos aplicando rigorosamente as diretrizes da [PEP 8](https://peps.python.org/pep-0008/). Ele padroniza espaçamentos, quebras de linha e uso de aspas. O objetivo é simples: garantir que todo o repositório pareça ter sido escrito por uma única pessoa, eliminando discussões de estilo no time.
+
+* **Linter (`ruff`) — Cuida do *Conteúdo* (Semântica e Correção):**  
+  O `ruff` realiza análise estática de código (sem precisar executá-lo) para identificar bugs potenciais, imports órfãos, variáveis não utilizadas e más práticas de Python. Desenvolvido em Rust, o `ruff` é até 100x mais rápido que ferramentas legadas (como *Flake8* e *Pylint*) e tornou-se a ferramenta de análise estática preferida da comunidade moderna de engenharia de dados.
+
+---
+
+### 1. Adicione as ferramentas ao `requirements.txt`
+
+Adicione o linter e o formatador ao arquivo `./data-engineering-pyspark/requirements.txt`:
+
+```text
+# requirements.txt
+pyspark==4.2.0
+pyyaml==6.0.3
+ruff==0.12.9
+black==25.1.0
+```
+
+*(Nota: você pode utilizar versões mais recentes compaginadas com o seu ambiente)*
+
+---
+
+### 2. Instale as novas dependências
+
+Instale as ferramentas no seu ambiente virtual (`.venv`):
+
+```bash
+pip install -r ./data-engineering-pyspark/requirements.txt
+```
+
+---
+
+### 3. Como usar as ferramentas
+
+A boa prática recomenda **formatar primeiro com `black` e inspecionar em seguida com `ruff`**:
+
+#### A. Formatação Automática com `black`
+Execute o formatador apontando para o diretório do projeto. Ele reformatará os arquivos `.py` diretamente no disco:
+
+```bash
+black ./data-engineering-pyspark
+```
+
+---
+
+### 4. Testando o Linter na Prática (Erro Intencional e `--fix`)
+
+Para entender o poder do `ruff`, vamos introduzir um erro clássico de propósito.
+
+1. Abra o arquivo `src/main.py` e adicione temporariamente um import não utilizado no início:
+
+  ```python
+  import os
   ```
-  # requirements.txt
-  pyspark==4.2.0
-  pyyaml==6.0.3
-  ruff==0.12.9
-  black==25.1.0
-  ```
 
-*(Nota: você pode usar versões mais recentes se desejar)*
-
-2. Instale as novas dependências:
+2. Agora execute o `ruff`:
 
   ```bash
-  pip install -r ./data-engineering-pyspark/requirements.txt
-
+  ruff check ./data-engineering-pyspark
   ```
 
-3. Como usar as ferramentas:
+  O `ruff` imediatamente detectará a irregularidade e exibirá uma saída similar a esta:
 
--   **Para verificar a qualidade do código (Linting):**
-    Execute o `ruff` na raiz do projeto. Ele apontará problemas de estilo, bugs potenciais e código não utilizado.
-    ```bash
-    ruff check .
+  ```text
+  F401 [*] `os` imported but unused
+   --> src/main.py:1:8
+    |
+  1 | import os
+    |        ^^
+    |
+  help: Remove unused import: `os`
 
-    ```
+  Found 1 error.
+  [*] 1 fixable with the `--fix` option.
+  ```
 
--   **Para formatar o código automaticamente (Formatação):**
-    Execute o `black` na raiz do projeto. Ele irá reformatar todos os seus arquivos `.py` para um estilo consistente.
-    ```bash
-    black .
+  Repare na indicação `[*]`: ela sinaliza que o `ruff` é capaz de corrigir essa falha de forma automática!
 
-    ```
+3. Execute o comando com a flag `--fix`:
 
-Adotar essas ferramentas torna o código mais profissional e fácil de manter, especialmente ao trabalhar em equipe.
+  ```bash
+  ruff check --fix ./data-engineering-pyspark
+  ```
+
+  Saída esperada:
+  ```text
+  Found 1 error (1 fixed, 0 remaining).
+  ```
+
+4. Verifique novamente a saúde do código:
+
+  ```bash
+  ruff check ./data-engineering-pyspark
+  ```
+
+  Saída esperada:
+  ```text
+  All checks passed!
+  ```
+
+O `import os` desnecessário foi removido automaticamente, deixando o projeto impecável e pronto para as etapas seguintes.
+
+> [!TIP]
+> **Portão de Qualidade em CI/CD:**  
+> Em equipes modernas, comandos como `black --check ./data-engineering-pyspark` e `ruff check ./data-engineering-pyspark` rodam de forma automática em esteiras de integração contínua (GitHub Actions, GitLab CI). Se um desenvolvedor abrir um Pull Request com código desformatado ou com avisos do linter, o merge é bloqueado automaticamente até que o código atenda aos padrões do projeto.
 
 ---
 
