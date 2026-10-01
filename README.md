@@ -2495,26 +2495,22 @@ spark-submit --master "local[*]" \
 
 ## Passo 13: Testes Automatizados
 
-Até agora, construímos uma aplicação robusta, bem estruturada e distribuível. Mas como garantir que a lógica de negócio — o coração da aplicação — está correta e **continuará** correta conforme o projeto evolui? A resposta é: **testes automatizados**.
+Construímos uma aplicação robusta e distribuível. Mas como garantir que a lógica de negócio está correta e **continuará** correta conforme o projeto evolui? Com **testes automatizados** — uma rede de segurança que valida o comportamento, previne regressões e dá confiança para refatorar.
 
-Uma boa suíte de testes nos dá:
-- **Validação da Correção:** garante que cálculos e regras de negócio se comportam exatamente como o esperado.
-- **Proteção contra Regressões:** se uma alteração futura quebrar algo, o teste falha e avisa imediatamente.
-- **Confiança para Refatorar:** você melhora o código sabendo que não introduziu bugs.
-- **Documentação Viva:** um bom teste descreve, em código executável, qual o comportamento esperado de cada componente.
+Nesta etapa montamos uma suíte **enxuta, porém representativa**: cobrimos cada camada da aplicação e dois conceitos essenciais em pipelines de dados — **testes parametrizados** e **teste de exceções**.
 
 ### 13-A. A Pirâmide de Testes
 
-Nem todo teste é igual. Vamos organizar nossa suíte em duas camadas:
+Organizamos a suíte em duas camadas:
 
-- **Testes Unitários** — verificam **uma unidade isolada** (um método, uma função), sem I/O externo. São muitos, rápidos e baratos. Ex.: a classe `Transformation`, que contém lógica pura.
-- **Testes de Integração** — verificam se os componentes **cooperam corretamente** (a orquestração do `Pipeline`, a leitura/escrita real em disco). São menos numerosos e mais lentos.
+- **Testes Unitários** — verificam uma unidade isolada (um método), sem I/O externo. São muitos, rápidos e baratos. Ex.: a classe `Transformation` (lógica pura).
+- **Testes de Integração** — verificam se os componentes cooperam (orquestração do `Pipeline`, leitura/escrita real em disco). São menos numerosos e mais lentos.
 
-> A base da pirâmide é larga (muitos testes unitários, rápidos) e o topo é estreito (poucos testes de integração, lentos). Essa proporção mantém a suíte ágil sem abrir mão da confiança de que "as peças se encaixam".
+> A base da pirâmide é larga (muitos testes unitários rápidos) e o topo é estreito (poucos testes de integração). Isso mantém a suíte ágil sem perder a confiança de que "as peças se encaixam".
 
 ### 13-B. Adicione as dependências de teste
 
-`pytest` é o framework de testes mais popular do Python, e o `pytest-cov` mede a **cobertura** (quanto do código é exercitado pelos testes).
+`pytest` é o framework de testes padrão do Python; `pytest-cov` mede a **cobertura** (quanto do código é exercitado pelos testes).
 
 - Atualize o `requirements.txt`:
   ```
@@ -2527,7 +2523,6 @@ Nem todo teste é igual. Vamos organizar nossa suíte em duas camadas:
   pytest==8.4.1       # Framework de testes
   pytest-cov==6.0.0   # Relatório de cobertura
   ```
-  *(Você pode usar versões mais recentes se desejar.)*
 
 - Instale:
   ```bash
@@ -2537,7 +2532,7 @@ Nem todo teste é igual. Vamos organizar nossa suíte em duas camadas:
 
 ### 13-C. Crie a estrutura de testes
 
-Convenção: um diretório `tests/` na raiz do projeto, **separado** do `src/` e subdividido por tipo de teste. Os arquivos e funções de teste devem começar com `test_`.
+Convenção: um diretório `tests/` na raiz do projeto, **separado** de `src/` e subdividido por tipo. Arquivos e funções de teste começam com `test_`.
 
   ```bash
   mkdir -p ./data-engineering-pyspark/tests/unit
@@ -2549,13 +2544,13 @@ Convenção: um diretório `tests/` na raiz do projeto, **separado** do `src/` e
 
   ```
 
-Ao final, a árvore ficará assim:
+Árvore final:
 
   ```
   data-engineering-pyspark/
   ├── pyproject.toml              # config do projeto e do pytest
   ├── src/
-  │   └── ...
+  │   └── data_engineering_pyspark/   # seu código, sob o namespace do pacote (Passo 12)
   └── tests/
       ├── __init__.py
       ├── conftest.py              # fixtures compartilhadas (ex.: SparkSession)
@@ -2572,12 +2567,12 @@ Ao final, a árvore ficará assim:
 
 ### 13-D. Configure o pytest (no `pyproject.toml`)
 
-Sem configuração, o `import` das nossas classes falharia, porque o código fica em `src/`. Em vez de criar um novo arquivo, centralizamos a configuração no `pyproject.toml` que você configurou no Passo 12.
+Sem configuração, o `import` das nossas classes falharia, pois o código fica em `src/`. Em vez de criar outro arquivo, centralizamos a configuração no `pyproject.toml` do Passo 12.
 
-- Se ainda não adicionou no Passo 12, edite o `pyproject.toml` e adicione ao final a seção `[tool.pytest.ini_options]`:
+- Adicione ao final do `pyproject.toml` (se ainda não estiver presente):
 
   ```toml
-  # pyproject.toml (adicione ao final se ainda não estiver presente)
+  # pyproject.toml
   [tool.pytest.ini_options]
   pythonpath = ["src", "src/data_engineering_pyspark"]
   testpaths = ["tests"]
@@ -2588,15 +2583,23 @@ Sem configuração, o `import` das nossas classes falharia, porque o código fic
   addopts = "-v"
   ```
 
-O que cada opção faz:
-- **`pythonpath`** — adiciona `src/` e `src/data_engineering_pyspark/` ao caminho de import. Isso permite flexibilidade total: você pode importar tanto pelo namespace completo (`from data_engineering_pyspark.processing.transformations import Transformation`) quanto pelo formato direto (`from processing.transformations import Transformation`), garantindo compatibilidade contínua.
+- **`pythonpath`** — a entrada `"src"` torna o pacote `data_engineering_pyspark` (criado no Passo 12) importável, permitindo escrever `from data_engineering_pyspark.processing.transformations import Transformation` — **exatamente como no `main.py`**. A segunda entrada (`"src/data_engineering_pyspark"`) é um atalho que também aceitaria o formato direto (`from processing...`), mas usamos o **namespace completo** por consistência com o restante do projeto.
 - **`testpaths`** — onde o pytest procura testes.
-- **`markers`** — rótulos para categorizar testes (ex.: rodar só os unitários com `pytest -m unit`).
-- **`addopts`** — opções sempre aplicadas (aqui, saída detalhada).
+- **`markers`** — rótulos para categorizar testes (ex.: `pytest -m unit`).
+- **`addopts`** — opções sempre aplicadas (`-v` para saída detalhada).
 
-### 13-E. Centralize a `SparkSession` no `conftest.py`
+### 13-E. Fixtures e a `SparkSession` compartilhada (`conftest.py`)
 
-Criar uma `SparkSession` é **caro**. Não queremos pagar esse custo em cada teste. O pytest tem um arquivo especial, o `conftest.py`, cujas *fixtures* ficam disponíveis automaticamente para **todos** os testes — sem precisar importar.
+Antes de escrever os testes, precisamos de um conceito central do pytest: a **fixture**.
+
+Uma **fixture** é uma função decorada com `@pytest.fixture` que **prepara e fornece** algo de que o teste precisa (uma conexão, um dado, um objeto configurado). O teste a utiliza apenas **declarando um parâmetro com o mesmo nome** da fixture — o pytest a executa e injeta o valor automaticamente (é injeção de dependência aplicada aos testes). Isso elimina código de preparação repetido e mantém cada teste focado no que importa.
+
+Dois atributos definem o comportamento de uma fixture:
+
+- **Escopo (`scope`)** — com que frequência ela é recriada. O padrão é `scope="function"` (uma vez por teste); os outros valores são `class`, `module` e `session` (uma vez para toda a execução).
+- **`return` vs `yield`** — use `return` quando a fixture apenas entrega um valor; use `yield` quando ela também precisa de **limpeza** depois do teste (o código após o `yield` roda no fim, como um `finally`).
+
+Nossa primeira fixture é a `SparkSession`. Criar uma sessão Spark é **caro**, então queremos uma única, reutilizada por toda a suíte — ou seja, `scope="session"` e `yield` para encerrá-la ao final. O arquivo especial `conftest.py` torna qualquer fixture ali definida disponível **automaticamente** para todos os testes, sem precisar importar.
 
 - Crie o arquivo `./data-engineering-pyspark/tests/conftest.py`:
 
@@ -2613,12 +2616,7 @@ Criar uma `SparkSession` é **caro**. Não queremos pagar esse custo em cada tes
 
   @pytest.fixture(scope="session")
   def spark():
-      """
-      SparkSession compartilhada por toda a suíte de testes.
-
-      scope="session" garante que a sessão seja criada uma única vez e
-      reutilizada, evitando o overhead de inicialização do Spark em cada teste.
-      """
+      """SparkSession única, compartilhada por toda a suíte (evita recriar o Spark a cada teste)."""
       session = (
           SparkSession.builder
           .appName("test-pipeline-session")
@@ -2631,29 +2629,23 @@ Criar uma `SparkSession` é **caro**. Não queremos pagar esse custo em cada tes
       session.stop()
   ```
 
-Pontos-chave:
-- **`scope="session"`** — uma única sessão para toda a execução (em vez de `scope="function"`, que a recriaria a cada teste).
-- **`yield session`** — tudo antes do `yield` é a preparação; o que vem depois (`session.stop()`) é a limpeza, executada ao final.
-- **`spark.ui.enabled=false`** e **`shuffle.partitions=2`** — desligam a UI e reduzem o número de partições para deixar os testes rápidos e silenciosos.
-- Qualquer teste que declare um parâmetro chamado `spark` recebe essa sessão automaticamente.
+- **`scope="session"`** — a sessão é criada **uma única vez** para toda a execução (e não a cada teste, como seria no escopo `function` padrão).
+- **`yield session`** — o que vem antes é a preparação; o que vem depois (`session.stop()`) é a limpeza, executada ao final da suíte.
+- Qualquer teste que declare o parâmetro `spark` recebe essa sessão automaticamente.
+
+> Nas próximas subseções criaremos também **fixtures próprias** (ex.: arquivos de teste temporários). Elas usarão o escopo padrão (`function`) e poderão até **depender de outras fixtures** — veja no 13-I.
 
 ### 13-F. A anatomia de um teste: Arrange, Act, Assert
 
-Todo teste que escreveremos segue três passos:
+Todo teste segue três passos:
 
-1. **Arrange (Preparar):** monte os dados de entrada e o resultado esperado.
-2. **Act (Agir):** execute a função/método sob teste.
-3. **Assert (Verificar):** compare o resultado obtido com o esperado.
+1. **Arrange:** prepare os dados de entrada e o resultado esperado.
+2. **Act:** execute o método sob teste.
+3. **Assert:** compare o resultado obtido com o esperado.
 
-Com a fundação pronta, vamos escrever os testes camada por camada.
+### 13-G. Testes unitários da `Transformation`
 
-### 13-G. Testes unitários da `Transformation` (a lógica de negócio)
-
-Este é o arquivo **mais crítico**: as transformações contêm as regras de negócio. Um erro aqui corromperia silenciosamente todos os resultados. Como é lógica pura, criamos os DataFrames *inline* (sem I/O) — máxima velocidade e isolamento.
-
-Repare em dois pontos importantes:
-- Agrupamos os testes em **classes** (`TestAddValorTotalPedidos`, ...) para organizar por método testado.
-- Cada teste cobre **um comportamento específico**, incluindo **casos de borda** (nulos, zero, menos de 10 clientes), e a docstring explica *por que* aquele caso importa.
+A classe mais crítica: contém as regras de negócio. Como é lógica pura, criamos os DataFrames *inline* (sem I/O). Começamos com **um teste representativo por método** — os casos de borda viram testes parametrizados na próxima subseção.
 
 - Crie o arquivo `./data-engineering-pyspark/tests/unit/test_transformations.py`:
 
@@ -2666,14 +2658,12 @@ Repare em dois pontos importantes:
   # tests/unit/test_transformations.py
   import pytest
   from pyspark.sql.types import (
-      ArrayType, DateType, FloatType, LongType, StringType,
+      FloatType, LongType, StringType,
       StructField, StructType, TimestampType,
   )
 
-  from processing.transformations import Transformation
+  from data_engineering_pyspark.processing.transformations import Transformation
 
-
-  # --- Schemas reutilizáveis ---
 
   SCHEMA_PEDIDOS = StructType([
       StructField("id_pedido", StringType(), True),
@@ -2685,138 +2675,103 @@ Repare em dois pontos importantes:
       StructField("id_cliente", LongType(), True),
   ])
 
-  SCHEMA_PEDIDOS_COM_TOTAL = StructType([
+  SCHEMA_TOTAL = StructType([
       StructField("id_cliente", LongType(), True),
       StructField("valor_total", FloatType(), True),
   ])
 
+  # join_pedidos_clientes só usa id, nome e email do lado de clientes
   SCHEMA_CLIENTES = StructType([
       StructField("id", LongType(), True),
       StructField("nome", StringType(), True),
-      StructField("data_nasc", DateType(), True),
-      StructField("cpf", StringType(), True),
       StructField("email", StringType(), True),
-      StructField("interesses", ArrayType(StringType()), True),
   ])
 
 
   class TestAddValorTotalPedidos:
 
-      def test_calcula_valor_unitario_por_quantidade(self, spark):
+      def test_calcula_valor_total(self, spark):
           """valor_total deve ser valor_unitario × quantidade."""
-          df = spark.createDataFrame(
-              [("p1", "TV", 1500.0, 2, None, "SP", 1)], SCHEMA_PEDIDOS,
-          )
+          df = spark.createDataFrame([("p1", "TV", 1500.0, 2, None, "SP", 1)], SCHEMA_PEDIDOS)
           resultado = Transformation().add_valor_total_pedidos(df)
           assert resultado.collect()[0].valor_total == pytest.approx(3000.0)
-
-      def test_adiciona_coluna_valor_total(self, spark):
-          """A coluna 'valor_total' deve existir no resultado (etapas seguintes dependem dela)."""
-          df = spark.createDataFrame(
-              [("p1", "TV", 100.0, 1, None, "SP", 1)], SCHEMA_PEDIDOS,
-          )
-          resultado = Transformation().add_valor_total_pedidos(df)
-          assert "valor_total" in resultado.columns
-
-      def test_valor_total_zero_quando_quantidade_e_zero(self, spark):
-          """Item devolvido (quantidade=0) deve gerar valor_total=0, não erro nem NULL."""
-          df = spark.createDataFrame(
-              [("p1", "TV", 500.0, 0, None, "SP", 1)], SCHEMA_PEDIDOS,
-          )
-          resultado = Transformation().add_valor_total_pedidos(df)
-          assert resultado.collect()[0].valor_total == pytest.approx(0.0)
-
-      def test_valor_total_nulo_quando_valor_unitario_e_nulo(self, spark):
-          """NULL se propaga em operações aritméticas — comportamento esperado do Spark."""
-          df = spark.createDataFrame(
-              [("p1", "TV", None, 2, None, "SP", 1)], SCHEMA_PEDIDOS,
-          )
-          resultado = Transformation().add_valor_total_pedidos(df)
-          assert resultado.collect()[0].valor_total is None
 
 
   class TestGetTop10Clientes:
 
-      def test_retorna_exatamente_10_quando_ha_mais_de_10(self, spark):
-          """Com 15 clientes, o resultado deve conter exatamente 10 linhas."""
-          dados = [(i, float(i * 100)) for i in range(1, 16)]
-          df = spark.createDataFrame(dados, SCHEMA_PEDIDOS_COM_TOTAL)
-          resultado = Transformation().get_top_10_clientes(df)
-          assert resultado.count() == 10
-
-      def test_ordena_por_valor_total_decrescente(self, spark):
-          """O maior valor_total deve vir primeiro. Ordem ascendente devolveria os 10 piores — bug silencioso."""
-          dados = [(3, 500.0), (1, 1500.0), (2, 300.0)]
-          df = spark.createDataFrame(dados, SCHEMA_PEDIDOS_COM_TOTAL)
+      def test_ordena_decrescente_e_limita_a_10(self, spark):
+          """Retorna no máximo 10 clientes, do maior para o menor valor_total."""
+          dados = [(i, float(i * 100)) for i in range(1, 16)]   # 15 clientes
+          df = spark.createDataFrame(dados, SCHEMA_TOTAL)
           linhas = Transformation().get_top_10_clientes(df).collect()
-          assert linhas[0].id_cliente == 1   # maior valor
-          assert linhas[2].id_cliente == 2   # menor valor
+          assert len(linhas) == 10
+          assert linhas[0].id_cliente == 15   # maior valor primeiro
 
-      def test_retorna_todos_quando_ha_menos_de_10(self, spark):
-          """Com apenas 3 clientes, todos devem retornar (sem erro de limite)."""
-          dados = [(1, 100.0), (2, 200.0), (3, 300.0)]
-          df = spark.createDataFrame(dados, SCHEMA_PEDIDOS_COM_TOTAL)
-          assert Transformation().get_top_10_clientes(df).count() == 3
-
-      def test_agrega_multiplos_pedidos_do_mesmo_cliente(self, spark):
-          """Um cliente com vários pedidos deve ter os valores SOMADOS, não contados."""
-          dados = [(1, 100.0), (1, 200.0), (2, 500.0)]
-          df = spark.createDataFrame(dados, SCHEMA_PEDIDOS_COM_TOTAL)
-          linhas = {r.id_cliente: r.valor_total
+      def test_soma_pedidos_do_mesmo_cliente(self, spark):
+          """Vários pedidos de um cliente devem ser SOMADOS, não contados."""
+          df = spark.createDataFrame([(1, 100.0), (1, 200.0), (2, 500.0)], SCHEMA_TOTAL)
+          totais = {r.id_cliente: r.valor_total
                     for r in Transformation().get_top_10_clientes(df).collect()}
-          assert linhas[1] == pytest.approx(300.0)   # 100 + 200
+          assert totais[1] == pytest.approx(300.0)
 
 
   class TestJoinPedidosClientes:
 
-      @pytest.fixture
-      def pedidos_df(self, spark):
-          return spark.createDataFrame([(1, 1500.0), (2, 300.0)], SCHEMA_PEDIDOS_COM_TOTAL)
-
-      @pytest.fixture
-      def clientes_df(self, spark):
-          dados = [
-              (1, "Ana Lima", None, "000.000.000-00", "ana@test.com", None),
-              (2, "Carlos Melo", None, "111.111.111-11", "carlos@test.com", None),
-          ]
-          return spark.createDataFrame(dados, SCHEMA_CLIENTES)
-
-      def test_resultado_contem_apenas_as_colunas_esperadas(self, spark, pedidos_df, clientes_df):
-          """O relatório deve expor só id_cliente, nome, email e valor_total — nada de CPF/data_nasc."""
-          resultado = Transformation().join_pedidos_clientes(pedidos_df, clientes_df)
-          assert set(resultado.columns) == {"id_cliente", "nome", "email", "valor_total"}
-
-      def test_associa_cliente_correto_ao_pedido(self, spark, pedidos_df, clientes_df):
-          """Cada id_cliente deve ser ligado ao nome e email corretos."""
-          resultado = Transformation().join_pedidos_clientes(pedidos_df, clientes_df)
-          linhas = {r.id_cliente: r for r in resultado.collect()}
-          assert linhas[1].nome == "Ana Lima"
-          assert linhas[1].email == "ana@test.com"
-
-      def test_inner_join_exclui_cliente_sem_pedido(self, spark):
-          """Cliente sem pedido não deve aparecer. Um LEFT JOIN poluiria o relatório com valor_total NULL."""
-          pedidos = spark.createDataFrame([(1, 1500.0)], SCHEMA_PEDIDOS_COM_TOTAL)
+      def test_inner_join_so_expoe_colunas_do_relatorio(self, spark):
+          """Só clientes com pedido entram; o resultado traz apenas id_cliente, nome, email e valor_total."""
+          pedidos = spark.createDataFrame([(1, 1500.0)], SCHEMA_TOTAL)
           clientes = spark.createDataFrame(
-              [
-                  (1, "Ana Lima", None, "000.000.000-00", "ana@test.com", None),
-                  (99, "Sem Pedido", None, "999.999.999-99", "x@test.com", None),
-              ],
+              [(1, "Ana Lima", "ana@test.com"), (99, "Sem Pedido", "x@test.com")],
               SCHEMA_CLIENTES,
           )
           resultado = Transformation().join_pedidos_clientes(pedidos, clientes)
           assert resultado.count() == 1
+          assert set(resultado.columns) == {"id_cliente", "nome", "email", "valor_total"}
           assert resultado.collect()[0].nome == "Ana Lima"
   ```
 
-**Conceitos importantes deste arquivo:**
-- **Organização em classes** (`Test...`): agrupa os testes por método sob teste, deixando a saída do pytest legível e a intenção clara.
-- **Casos de borda**: além do "caminho feliz", testamos `quantidade=0`, `valor_unitario=NULL`, menos de 10 clientes e a exclusão de clientes sem pedido. São justamente esses casos que costumam esconder bugs.
-- **`pytest.approx`**: números de ponto flutuante (`FloatType`) raramente são exatamente iguais por causa de arredondamento binário. `pytest.approx(3000.0)` compara com uma tolerância, evitando falhas espúrias.
-- **Docstrings que explicam o "porquê"**: cada teste documenta qual regra de negócio protege — o teste vira documentação executável.
+> **`pytest.approx`**: números de ponto flutuante (`FloatType`) raramente são exatamente iguais por causa de arredondamento binário. `pytest.approx(3000.0)` compara com uma tolerância, evitando falhas espúrias.
 
-### 13-H. Testes unitários do `DataHandler` (I/O com arquivos temporários)
+### 13-H. Testes parametrizados (`@pytest.mark.parametrize`)
 
-O `DataHandler` lê e escreve arquivos. Mas **não** queremos depender dos datasets reais (grandes e externos). A fixture `tmp_path` do pytest cria um diretório temporário, único por teste e apagado automaticamente — nele geramos arquivos minúsculos de propósito.
+Escrever um método de teste para cada valor de entrada gera duplicação. O `@pytest.mark.parametrize` executa a **mesma** função de teste com vários conjuntos de dados — ideal para cobrir casos de borda (zero, negativo, etc.) de forma concisa.
+
+Compare com a subseção anterior (um método por caso). Aqui cobrimos vários cenários de `add_valor_total_pedidos` em uma única função:
+
+- Acrescente ao `tests/unit/test_transformations.py`:
+
+  ```python
+  @pytest.mark.parametrize(
+      "valor_unitario, quantidade, esperado",
+      [
+          (10.0, 2, 20.0),     # caminho feliz
+          (500.0, 0, 0.0),     # item devolvido: quantidade zero
+          (1500.0, 1, 1500.0), # unidade única
+      ],
+  )
+  def test_add_valor_total_parametrizado(spark, valor_unitario, quantidade, esperado):
+      """Mesmo cálculo, vários cenários — cada tupla vira um teste independente."""
+      df = spark.createDataFrame(
+          [("p1", "TV", valor_unitario, quantidade, None, "SP", 1)], SCHEMA_PEDIDOS,
+      )
+      resultado = Transformation().add_valor_total_pedidos(df)
+      assert resultado.collect()[0].valor_total == pytest.approx(esperado)
+
+
+  def test_add_valor_total_propaga_nulo(spark):
+      """NULL em valor_unitario se propaga (aritmética do Spark) — caso especial, fora do parametrize."""
+      df = spark.createDataFrame([("p1", "TV", None, 2, None, "SP", 1)], SCHEMA_PEDIDOS)
+      resultado = Transformation().add_valor_total_pedidos(df)
+      assert resultado.collect()[0].valor_total is None
+  ```
+
+> Cada tupla da lista vira **um teste independente** na saída do pytest (`...[10.0-2-20.0]`, `...[500.0-0-0.0]`, ...). Se um cenário falhar, você vê exatamente qual. O caso do `NULL` fica separado porque a verificação (`is None`) difere de uma comparação numérica.
+>
+> **Quando usar?** Parametrize quando a **lógica é a mesma** e só mudam os dados. Quando a verificação muda (como no `NULL`), um teste próprio é mais claro.
+
+### 13-I. Testes unitários do `DataHandler` (I/O com arquivos temporários)
+
+O `DataHandler` lê e escreve arquivos. Em vez de depender dos datasets reais (grandes e externos), usamos a fixture `tmp_path` do pytest, que cria um diretório temporário isolado e descartável.
 
 - Crie o arquivo `./data-engineering-pyspark/tests/unit/test_data_handler.py`:
 
@@ -2831,16 +2786,15 @@ O `DataHandler` lê e escreve arquivos. Mas **não** queremos depender dos datas
   import json
   import os
   import pytest
-  from pyspark.sql.types import (
-      ArrayType, FloatType, LongType, StructField, StructType,
-  )
+  from pyspark.sql.types import FloatType, LongType
 
-  from io_utils.data_handler import DataHandler
+  from data_engineering_pyspark.io_utils.data_handler import DataHandler
+  from data_engineering_pyspark.io_utils.exceptions import LoadPedidosException
 
 
   @pytest.fixture
   def arquivo_clientes_gz(tmp_path):
-      """Arquivo JSON gzipado com dois clientes de exemplo."""
+      """JSON gzipado com dois clientes."""
       clientes = [
           {"id": 1, "nome": "Ana Lima", "data_nasc": "1985-03-10",
            "cpf": "000.000.000-00", "email": "ana@test.com", "interesses": ["Tech"]},
@@ -2856,12 +2810,11 @@ O `DataHandler` lê e escreve arquivos. Mas **não** queremos depender dos datas
 
   @pytest.fixture
   def arquivo_pedidos_gz(tmp_path):
-      """Arquivo CSV gzipado com três pedidos de exemplo."""
+      """CSV gzipado com dois pedidos (separador ';')."""
       linhas = [
           "id_pedido;produto;valor_unitario;quantidade;data_criacao;uf;id_cliente",
           "abc-001;TV;1500.0;2;2024-01-01T10:00:00;SP;1",
           "abc-002;PC;3000.0;1;2024-01-02T11:00:00;RJ;2",
-          "abc-003;MONITOR;800.0;3;2024-01-03T12:00:00;MG;1",
       ]
       gz_path = tmp_path / "pedidos.csv.gz"
       with gzip.open(gz_path, "wt", encoding="utf-8") as f:
@@ -2871,31 +2824,22 @@ O `DataHandler` lê e escreve arquivos. Mas **não** queremos depender dos datas
 
   class TestLoadClientes:
 
-      def test_le_json_gz_e_retorna_dataframe(self, spark, arquivo_clientes_gz):
+      def test_le_json_e_aplica_schema(self, spark, arquivo_clientes_gz):
+          """Lê o JSON gzipado e aplica o schema explícito (id como LongType, não String)."""
           df = DataHandler(spark).load_clientes(arquivo_clientes_gz)
           assert df.count() == 2
-
-      def test_schema_aplica_tipos_corretos(self, spark, arquivo_clientes_gz):
-          """Schema explícito evita type coercion: sem ele, 'id' viria como String e quebraria o JOIN."""
-          df = DataHandler(spark).load_clientes(arquivo_clientes_gz)
           tipos = {f.name: f.dataType for f in df.schema.fields}
           assert isinstance(tipos["id"], LongType)
-          assert isinstance(tipos["interesses"], ArrayType)
 
 
   class TestLoadPedidos:
 
-      def test_le_csv_gz_com_separador_ponto_e_virgula(self, spark, arquivo_pedidos_gz):
+      def test_le_csv_e_aplica_tipos_numericos(self, spark, arquivo_pedidos_gz):
+          """Sem schema, valor_unitario/quantidade viriam como String e a multiplicação falharia."""
           df = DataHandler(spark).load_pedidos(
               arquivo_pedidos_gz, compression="gzip", header=True, sep=";",
           )
-          assert df.count() == 3
-
-      def test_schema_pedidos_tem_tipos_numericos(self, spark, arquivo_pedidos_gz):
-          """Sem schema, valor_unitario e quantidade viriam como String e a multiplicação falharia."""
-          df = DataHandler(spark).load_pedidos(
-              arquivo_pedidos_gz, compression="gzip", header=True, sep=";",
-          )
+          assert df.count() == 2
           tipos = {f.name: f.dataType for f in df.schema.fields}
           assert isinstance(tipos["valor_unitario"], FloatType)
           assert isinstance(tipos["quantidade"], LongType)
@@ -2904,25 +2848,45 @@ O `DataHandler` lê e escreve arquivos. Mas **não** queremos depender dos datas
   class TestWriteParquet:
 
       def test_dados_gravados_podem_ser_relidos(self, spark, tmp_path):
-          """Verificar só a criação do diretório não basta: relemos para garantir integridade."""
-          schema = StructType([
-              StructField("id_cliente", LongType(), True),
-              StructField("valor_total", FloatType(), True),
-          ])
-          df = spark.createDataFrame([(1, 3000.0), (2, 300.0)], schema)
-          output_path = str(tmp_path / "saida_parquet")
-
+          """Verificar só a criação da pasta não basta: relemos para garantir integridade."""
+          df = spark.createDataFrame(
+              [(1, 3000.0), (2, 300.0)], "id_cliente long, valor_total float",
+          )
+          output_path = str(tmp_path / "saida")
           DataHandler(spark).write_parquet(df, output_path)
-
           assert os.path.exists(output_path)
           assert spark.read.parquet(output_path).count() == 2
   ```
 
-> **`tmp_path`** é uma fixture nativa do pytest que entrega um `pathlib.Path` para um diretório temporário isolado. Cada teste recebe o seu, e o pytest limpa tudo automaticamente — testes que não deixam lixo são testes confiáveis.
+> **`tmp_path`** é uma fixture **nativa** do pytest: entrega um diretório temporário isolado por teste, limpo automaticamente — testes que não deixam lixo são confiáveis.
+>
+> Repare também que `arquivo_clientes_gz` e `arquivo_pedidos_gz` são **fixtures nossas** (escopo `function`, recriadas a cada teste) que **recebem `tmp_path` como parâmetro** — uma fixture dependendo de outra, o que o pytest chama de **composição de fixtures**. Cada teste que as declara já recebe o arquivo pronto.
 
-### 13-I. Testes unitários de `carregar_config` (sem Spark)
+### 13-J. Testando o disparo de exceções
 
-Estes são os testes **mais rápidos** da suíte: validam apenas a leitura do YAML e nem precisam de Spark. Aqui também testamos o **caminho de erro** (arquivo inexistente).
+No [Passo 9](#passo-9-tratamento-de-erros) blindamos o `DataHandler`: ao falhar a leitura de pedidos, ele encapsula o erro técnico do Spark na exceção de domínio `LoadPedidosException` (`raise ... from e`). Um pipeline robusto precisa **garantir que essa exceção realmente seja disparada** nas condições de falha — senão a blindagem pode quebrar silenciosamente numa refatoração futura.
+
+Usamos `pytest.raises` para afirmar que um bloco levanta a exceção esperada.
+
+- Acrescente ao `tests/unit/test_data_handler.py`:
+
+  ```python
+  class TestLoadPedidosErros:
+
+      def test_caminho_inexistente_lanca_load_pedidos_exception(self, spark, tmp_path):
+          """Ler um caminho inexistente deve resultar em LoadPedidosException, não no erro cru do Spark."""
+          caminho_invalido = str(tmp_path / "nao_existe.csv.gz")
+          with pytest.raises(LoadPedidosException):
+              DataHandler(spark).load_pedidos(
+                  caminho_invalido, compression="gzip", header=True, sep=";",
+              )
+  ```
+
+> **Por que esperar a `LoadPedidosException` e não a `AnalysisException` do Spark?** Porque o *contrato* da nossa camada de I/O é a exceção de domínio. Testá-la garante que o encapsulamento do Passo 9 continua intacto — o `main.py` depende dele, não dos detalhes internos do Spark.
+
+### 13-K. Testes unitários de `carregar_config` (sem Spark)
+
+Os mais rápidos da suíte — validam só a leitura do YAML e nem precisam de Spark. Testamos também o **caminho de erro**.
 
 - Crie o arquivo `./data-engineering-pyspark/tests/unit/test_settings.py`:
 
@@ -2936,22 +2900,15 @@ Estes são os testes **mais rápidos** da suíte: validam apenas a leitura do YA
   import pytest
   import yaml
 
-  from config.settings import carregar_config
+  from data_engineering_pyspark.config.settings import carregar_config
 
 
   @pytest.fixture
   def arquivo_config_valido(tmp_path):
-      """Cria um settings.yaml mínimo e válido em diretório temporário."""
       config_data = {
           "spark": {"app_name": "TestApp"},
-          "paths": {
-              "clientes": "/dados/clientes.json.gz",
-              "pedidos": "/dados/pedidos/",
-              "output": "/dados/output/",
-          },
-          "file_options": {
-              "pedidos_csv": {"compression": "gzip", "header": True, "sep": ";"}
-          },
+          "paths": {"clientes": "/d/c.json.gz", "pedidos": "/d/p/", "output": "/d/out/"},
+          "file_options": {"pedidos_csv": {"compression": "gzip", "header": True, "sep": ";"}},
       }
       config_file = tmp_path / "settings.yaml"
       config_file.write_text(yaml.dump(config_data))
@@ -2960,25 +2917,20 @@ Estes são os testes **mais rápidos** da suíte: validam apenas a leitura do YA
 
   class TestCarregarConfig:
 
-      def test_carrega_yaml_valido_como_dicionario(self, arquivo_config_valido):
-          assert isinstance(carregar_config(arquivo_config_valido), dict)
-
-      def test_valores_sao_lidos_sem_distorcao(self, arquivo_config_valido):
+      def test_le_valores_do_yaml(self, arquivo_config_valido):
           resultado = carregar_config(arquivo_config_valido)
           assert resultado["spark"]["app_name"] == "TestApp"
           assert resultado["file_options"]["pedidos_csv"]["sep"] == ";"
 
       def test_arquivo_inexistente_lanca_excecao(self):
-          """O pipeline deve falhar rápido e com clareza, não silenciosamente com None."""
+          """Melhor falhar rápido e claro do que seguir com None e quebrar só mais adiante."""
           with pytest.raises(FileNotFoundError):
-              carregar_config("/caminho/que/nao/existe/settings.yaml")
+              carregar_config("/caminho/inexistente/settings.yaml")
   ```
 
-> **`pytest.raises`** verifica que um bloco **lança** a exceção esperada. O teste passa se — e somente se — `FileNotFoundError` for levantada. Testar o caminho de erro é tão importante quanto testar o caminho feliz.
+### 13-L. Testes unitários do `SparkSessionManager`
 
-### 13-J. Testes unitários do `SparkSessionManager` (contrato de Singleton)
-
-Aqui verificamos o **contrato público** da classe: retornar uma `SparkSession` válida e **reutilizar** a sessão existente (comportamento de Singleton via `getOrCreate`).
+Verificamos o **contrato público**: retornar uma `SparkSession` e reutilizar a existente (Singleton via `getOrCreate`).
 
 - Crie o arquivo `./data-engineering-pyspark/tests/unit/test_spark_session.py`:
 
@@ -2991,28 +2943,27 @@ Aqui verificamos o **contrato público** da classe: retornar uma `SparkSession` 
   # tests/unit/test_spark_session.py
   from pyspark.sql import SparkSession
 
-  from session.spark_session import SparkSessionManager
+  from data_engineering_pyspark.session.spark_session import SparkSessionManager
 
 
   class TestSparkSessionManager:
 
-      def test_retorna_instancia_de_spark_session(self, spark):
-          sessao = SparkSessionManager.get_spark_session(app_name="test-contrato")
-          assert isinstance(sessao, SparkSession)
+      def test_retorna_spark_session(self, spark):
+          assert isinstance(SparkSessionManager.get_spark_session(app_name="t"), SparkSession)
 
-      def test_getorcreate_reutiliza_a_mesma_sessao(self, spark):
-          """Chamadas subsequentes devem devolver a MESMA instância (Singleton via getOrCreate)."""
-          sessao_a = SparkSessionManager.get_spark_session(app_name="test-a")
-          sessao_b = SparkSessionManager.get_spark_session(app_name="test-b")
-          assert sessao_a is sessao_b
+      def test_reutiliza_a_mesma_sessao(self, spark):
+          """Chamadas repetidas devolvem a MESMA instância (Singleton via getOrCreate)."""
+          a = SparkSessionManager.get_spark_session(app_name="a")
+          b = SparkSessionManager.get_spark_session(app_name="b")
+          assert a is b
   ```
 
-### 13-K. Testes de integração do `Pipeline`
+### 13-M. Testes de integração do `Pipeline`
 
-Lembra do [Passo 7](#passo-7-injeção-de-dependências), onde injetamos `DataHandler` e `Transformation` no `Pipeline`? **Agora colhemos o benefício.** Faremos dois estilos complementares:
+Aproveitando a injeção de dependências do [Passo 7](#passo-7-injeção-de-dependências), testamos o `Pipeline` de dois jeitos complementares:
 
-1. **Orquestração (com *mock*):** substituímos o `DataHandler` por um objeto falso (`MagicMock`) e verificamos *se* e *como* o `Pipeline` chama suas dependências — sem tocar no disco.
-2. **End-to-end (sem *mock*):** rodamos o pipeline inteiro com dados reais pequenos e conferimos o Parquet de saída.
+1. **Orquestração (mock):** trocamos o `DataHandler` por um `MagicMock` e verificamos *como* o `Pipeline` chama suas dependências — sem tocar no disco.
+2. **End-to-end:** rodamos o pipeline inteiro com dados reais pequenos e conferimos o Parquet de saída.
 
 - Crie o arquivo `./data-engineering-pyspark/tests/integration/test_pipeline.py`:
 
@@ -3032,9 +2983,9 @@ Lembra do [Passo 7](#passo-7-injeção-de-dependências), onde injetamos `DataHa
       StructField, StructType, TimestampType,
   )
 
-  from io_utils.data_handler import DataHandler
-  from pipeline.pipeline import Pipeline
-  from processing.transformations import Transformation
+  from data_engineering_pyspark.io_utils.data_handler import DataHandler
+  from data_engineering_pyspark.pipeline.pipeline import Pipeline
+  from data_engineering_pyspark.processing.transformations import Transformation
 
 
   SCHEMA_PEDIDOS = StructType([
@@ -3056,71 +3007,48 @@ Lembra do [Passo 7](#passo-7-injeção-de-dependências), onde injetamos `DataHa
       StructField("interesses", ArrayType(StringType()), True),
   ])
 
-
-  @pytest.fixture
-  def config_teste():
-      return {
-          "paths": {
-              "clientes": "/mock/clientes.json.gz",
-              "pedidos": "/mock/pedidos/",
-              "output": "/mock/output/",
-          },
-          "file_options": {
-              "pedidos_csv": {"compression": "gzip", "header": True, "sep": ";"}
-          },
-      }
+  CONFIG = {
+      "paths": {"clientes": "/mock/clientes.json.gz", "pedidos": "/mock/pedidos/", "output": "/mock/output/"},
+      "file_options": {"pedidos_csv": {"compression": "gzip", "header": True, "sep": ";"}},
+  }
 
 
   @pytest.fixture
-  def dataframes_mock(spark):
-      pedidos_df = spark.createDataFrame(
-          [("p1", "TV", 1500.0, 2, None, "SP", 1),
-           ("p2", "PC", 3000.0, 1, None, "RJ", 2)],
+  def handler_mock(spark):
+      """DataHandler falso que devolve DataFrames prontos, sem ler disco."""
+      pedidos = spark.createDataFrame(
+          [("p1", "TV", 1500.0, 2, None, "SP", 1), ("p2", "PC", 3000.0, 1, None, "RJ", 2)],
           SCHEMA_PEDIDOS,
       )
-      clientes_df = spark.createDataFrame(
+      clientes = spark.createDataFrame(
           [(1, "Ana Lima", None, "000.000.000-00", "ana@test.com", None),
            (2, "Carlos Melo", None, "111.111.111-11", "carlos@test.com", None)],
           SCHEMA_CLIENTES,
       )
-      return pedidos_df, clientes_df
-
-
-  def _handler_mock(pedidos_df, clientes_df):
-      """DataHandler falso que devolve DataFrames pré-definidos, sem ler disco."""
       handler = MagicMock(spec=DataHandler)
-      handler.load_clientes.return_value = clientes_df
-      handler.load_pedidos.return_value = pedidos_df
+      handler.load_clientes.return_value = clientes
+      handler.load_pedidos.return_value = pedidos
       return handler
 
 
   class TestPipelineOrquestracao:
-      """Verifica SE e COMO o Pipeline chama suas dependências, usando um DataHandler mockado."""
 
-      def test_le_clientes_com_path_da_config(self, spark, config_teste, dataframes_mock):
-          handler = _handler_mock(*dataframes_mock)
-          Pipeline(handler, Transformation()).run(config_teste)
-          handler.load_clientes.assert_called_once_with(path="/mock/clientes.json.gz")
-
-      def test_le_pedidos_com_parametros_da_config(self, spark, config_teste, dataframes_mock):
-          """Um separador errado faria o CSV ser lido como uma coluna só — sem erro, mas com dados errados."""
-          handler = _handler_mock(*dataframes_mock)
-          Pipeline(handler, Transformation()).run(config_teste)
-          handler.load_pedidos.assert_called_once_with(
+      def test_le_pedidos_com_parametros_da_config(self, handler_mock):
+          """Separador errado leria o CSV como uma coluna só — erro silencioso. Garantimos os parâmetros."""
+          Pipeline(handler_mock, Transformation()).run(CONFIG)
+          handler_mock.load_pedidos.assert_called_once_with(
               path="/mock/pedidos/", compression="gzip", header=True, sep=";",
           )
 
-      def test_grava_no_path_de_output(self, spark, config_teste, dataframes_mock):
-          handler = _handler_mock(*dataframes_mock)
-          Pipeline(handler, Transformation()).run(config_teste)
-          handler.write_parquet.assert_called_once()
-          assert handler.write_parquet.call_args.kwargs["path"] == "/mock/output/"
+      def test_grava_no_path_de_output(self, handler_mock):
+          Pipeline(handler_mock, Transformation()).run(CONFIG)
+          handler_mock.write_parquet.assert_called_once()
+          assert handler_mock.write_parquet.call_args.kwargs["path"] == "/mock/output/"
 
 
   class TestPipelineEndToEnd:
-      """Dados reais pequenos percorrem TODO o pipeline e verificamos o Parquet final."""
 
-      def test_pipeline_completo_gera_parquet_valido(self, spark, tmp_path):
+      def test_fluxo_completo_gera_parquet_correto(self, spark, tmp_path):
           clientes = [
               {"id": 1, "nome": "Ana Lima", "data_nasc": "1985-03-10",
                "cpf": "000.000.000-00", "email": "ana@test.com", "interesses": ["Tech"]},
@@ -3149,64 +3077,59 @@ Lembra do [Passo 7](#passo-7-injeção-de-dependências), onde injetamos `DataHa
                   "pedidos": str(pedidos_path),
                   "output": output_path,
               },
-              "file_options": {
-                  "pedidos_csv": {"compression": "gzip", "header": True, "sep": ";"}
-              },
+              "file_options": {"pedidos_csv": {"compression": "gzip", "header": True, "sep": ";"}},
           }
 
           Pipeline(DataHandler(spark), Transformation()).run(config)
 
           resultado = spark.read.parquet(output_path)
           assert set(resultado.columns) == {"id_cliente", "nome", "email", "valor_total"}
-          # Ana Lima: pedidos abc-001 (1500×2=3000) + abc-003 (800×1=800) = 3800
+          # Ana Lima: abc-001 (1500×2=3000) + abc-003 (800×1=800) = 3800
           ana = resultado.where("nome = 'Ana Lima'").collect()
           assert ana[0].valor_total == pytest.approx(3800.0)
   ```
 
-> **O que é um `MagicMock(spec=DataHandler)`?** Um objeto falso que tem a mesma "cara" do `DataHandler` (os mesmos métodos), mas cujo comportamento nós controlamos. `assert_called_once_with(...)` verifica que o método foi chamado **exatamente uma vez** e **com os argumentos esperados**. Assim testamos a *orquestração* do `Pipeline` sem ler um único arquivo — só possível porque o `DataHandler` é **injetado** no construtor.
+> **`MagicMock(spec=DataHandler)`** cria um objeto com a mesma interface do `DataHandler`, mas controlado por nós. `assert_called_once_with(...)` confirma que o método foi chamado uma vez e com os argumentos certos — testando a *orquestração* sem ler arquivos. Só é possível porque o `DataHandler` é **injetado** no construtor.
 
-### 13-L. Executando os testes
+### 13-N. Executando os testes
 
-A partir da pasta anterior (a que contém o diretório `data-engineering-pyspark/`), sem precisar entrar nele:
+A partir da pasta que contém `data-engineering-pyspark/`, passe o caminho do projeto para que o pytest encontre o `pyproject.toml` e aplique o `pythonpath`:
 
   ```bash
   pytest ./data-engineering-pyspark
 
   ```
 
-Passamos o caminho do projeto como argumento para que o pytest **encontre o `pyproject.toml`** e aplique o `pythonpath`. Rodar `pytest` sozinho, a partir da pasta anterior, faria o pytest procurar a configuração apenas "para cima" e não a encontraria — causando erros de import.
-
-A saída lista cada teste (graças ao `-v` do `addopts`):
+Saída (com `-v`, graças ao `addopts`):
 
   ```
   ============================= test session starts ==============================
-  collected 25 items
+  collected 19 items
 
-  tests/integration/test_pipeline.py::TestPipelineOrquestracao::test_le_clientes_com_path_da_config PASSED
+  tests/integration/test_pipeline.py::TestPipelineOrquestracao::test_le_pedidos_com_parametros_da_config PASSED
   ...
-  tests/unit/test_transformations.py::TestAddValorTotalPedidos::test_calcula_valor_unitario_por_quantidade PASSED
+  tests/unit/test_transformations.py::test_add_valor_total_parametrizado[10.0-2-20.0] PASSED
+  tests/unit/test_transformations.py::test_add_valor_total_parametrizado[500.0-0-0.0] PASSED
   ...
-  ============================== 25 passed in 9.87s ==============================
+  ============================== 19 passed in 9.42s ==============================
   ```
 
-Para rodar **apenas** uma camada, selecione pelo diretório:
+Rodar **apenas** uma camada:
 
   ```bash
-  pytest ./data-engineering-pyspark/tests/unit          # só os testes unitários (rápidos)
-  pytest ./data-engineering-pyspark/tests/integration   # só os testes de integração
+  pytest ./data-engineering-pyspark/tests/unit          # unitários (rápidos)
+  pytest ./data-engineering-pyspark/tests/integration   # integração
 
   ```
 
-> Os marcadores declarados no `pyproject.toml` (seção `[tool.pytest.ini_options]`) permitem filtrar com `pytest -m unit`. Para usá-los, marque os testes — por exemplo, adicionando no topo de cada arquivo unitário a linha `pytestmark = pytest.mark.unit` (e `pytestmark = pytest.mark.integration` no arquivo de integração).
+> Os marcadores do `pyproject.toml` permitem filtrar com `pytest -m unit`. Para ativá-los, marque os testes — ex.: no topo de cada arquivo unitário, `pytestmark = pytest.mark.unit` (e `pytest.mark.integration` no de integração).
 
-### 13-M. Medindo a cobertura de código
+### 13-O. Medindo a cobertura de código
 
-Cobertura indica **quais linhas do código foram exercitadas** pelos testes. É um termômetro útil: embora 100% de cobertura não garanta ausência de bugs, áreas com cobertura baixa são pontos cegos.
-
-Rode com o `pytest-cov`, apontando para o código em `./data-engineering-pyspark/src`:
+Cobertura indica **quais linhas do código foram exercitadas** pelos testes. 100% não garante ausência de bugs, mas cobertura baixa aponta pontos cegos.
 
   ```bash
-  pytest ./data-engineering-pyspark --cov=./data-engineering-pyspark/src --cov-report=term-missing
+  pytest ./data-engineering-pyspark --cov=data_engineering_pyspark --cov-report=term-missing
 
   ```
 
@@ -3214,40 +3137,41 @@ A saída mostra a porcentagem por arquivo e **quais linhas faltam** (`Missing`):
 
   ```
   ---------- coverage: ... ----------
-  Name                                 Stmts   Miss  Cover   Missing
-  ------------------------------------------------------------------
-  src/config/settings.py                   3      0   100%
-  src/io_utils/data_handler.py            18      1    94%   42
-  src/pipeline/pipeline.py                25      0   100%
-  src/processing/transformations.py        9      0   100%
-  src/session/spark_session.py             4      0   100%
-  ------------------------------------------------------------------
-  TOTAL                                   59      2    97%
+  Name                                                         Stmts   Miss  Cover   Missing
+  ------------------------------------------------------------------------------------------
+  src/data_engineering_pyspark/config/settings.py                 10      1    90%   22
+  src/data_engineering_pyspark/io_utils/data_handler.py           24      2    92%   40-41
+  src/data_engineering_pyspark/io_utils/exceptions.py              4      0   100%
+  src/data_engineering_pyspark/pipeline/pipeline.py               25      0   100%
+  src/data_engineering_pyspark/processing/transformations.py       9      0   100%
+  src/data_engineering_pyspark/session/spark_session.py            4      0   100%
+  ------------------------------------------------------------------------------------------
+  TOTAL                                                           76      3    96%
   ```
 
-Para um relatório navegável em HTML:
+Relatório navegável em HTML:
 
   ```bash
-  pytest ./data-engineering-pyspark --cov=./data-engineering-pyspark/src --cov-report=html
+  pytest ./data-engineering-pyspark --cov=data_engineering_pyspark --cov-report=html
   # abra htmlcov/index.html no navegador
 
   ```
 
-> **Cuidado com a métrica:** busque cobrir os **caminhos críticos e os casos de borda** (foi o que fizemos), não perseguir 100% a qualquer custo. Um teste que executa o código mas não verifica nada (sem `assert`) aumenta a cobertura sem proteger contra nada.
+> **Cuidado com a métrica:** busque cobrir caminhos críticos e casos de borda, não perseguir 100% a qualquer custo. Um teste sem `assert` aumenta a cobertura e não protege contra nada.
 
-### 13-N. Recapitulando
+### 13-P. Recapitulando
 
-Agora temos uma suíte completa que cobre todas as camadas da aplicação:
+Suíte enxuta, mas cobrindo todas as camadas e os conceitos essenciais:
 
 | Camada | Arquivo | O que protege |
 |---|---|---|
-| Unitário | `test_transformations.py` | Regras de negócio + casos de borda (nulo, zero, agregação, ordenação, join) |
-| Unitário | `test_data_handler.py` | Leitura/escrita e aplicação correta dos schemas |
+| Unitário | `test_transformations.py` | Regras de negócio + casos de borda via **parametrização** |
+| Unitário | `test_data_handler.py` | Leitura/escrita, schemas e **disparo da `LoadPedidosException`** |
 | Unitário | `test_settings.py` | Carga de configuração e falha explícita em arquivo ausente |
 | Unitário | `test_spark_session.py` | Contrato de Singleton da sessão Spark |
 | Integração | `test_pipeline.py` | Orquestração (mock) + fluxo end-to-end (Parquet final) |
 
-Essa rede de segurança permite refatorar e evoluir o projeto com confiança — exatamente o objetivo de toda a jornada de engenharia de software deste tutorial.
+Com testes **parametrizados** (casos de borda sem duplicação), **teste de exceções** (garantindo o contrato de falha) e **mock** (isolando a orquestração), você tem uma rede de segurança para evoluir o projeto com confiança — o objetivo de toda a jornada de engenharia de software deste tutorial.
 
 ---
 
