@@ -2588,9 +2588,18 @@ Sem configuração, o `import` das nossas classes falharia, pois o código fica 
 - **`markers`** — rótulos para categorizar testes (ex.: `pytest -m unit`).
 - **`addopts`** — opções sempre aplicadas (`-v` para saída detalhada).
 
-### 13-E. Centralize a `SparkSession` no `conftest.py`
+### 13-E. Fixtures e a `SparkSession` compartilhada (`conftest.py`)
 
-Criar uma `SparkSession` é **caro**; não queremos pagar esse custo em cada teste. O arquivo especial `conftest.py` expõe *fixtures* automaticamente para todos os testes, sem precisar importar.
+Antes de escrever os testes, precisamos de um conceito central do pytest: a **fixture**.
+
+Uma **fixture** é uma função decorada com `@pytest.fixture` que **prepara e fornece** algo de que o teste precisa (uma conexão, um dado, um objeto configurado). O teste a utiliza apenas **declarando um parâmetro com o mesmo nome** da fixture — o pytest a executa e injeta o valor automaticamente (é injeção de dependência aplicada aos testes). Isso elimina código de preparação repetido e mantém cada teste focado no que importa.
+
+Dois atributos definem o comportamento de uma fixture:
+
+- **Escopo (`scope`)** — com que frequência ela é recriada. O padrão é `scope="function"` (uma vez por teste); os outros valores são `class`, `module` e `session` (uma vez para toda a execução).
+- **`return` vs `yield`** — use `return` quando a fixture apenas entrega um valor; use `yield` quando ela também precisa de **limpeza** depois do teste (o código após o `yield` roda no fim, como um `finally`).
+
+Nossa primeira fixture é a `SparkSession`. Criar uma sessão Spark é **caro**, então queremos uma única, reutilizada por toda a suíte — ou seja, `scope="session"` e `yield` para encerrá-la ao final. O arquivo especial `conftest.py` torna qualquer fixture ali definida disponível **automaticamente** para todos os testes, sem precisar importar.
 
 - Crie o arquivo `./data-engineering-pyspark/tests/conftest.py`:
 
@@ -2620,9 +2629,11 @@ Criar uma `SparkSession` é **caro**; não queremos pagar esse custo em cada tes
       session.stop()
   ```
 
-- **`scope="session"`** — uma única sessão para toda a execução.
-- **`yield`** — o que vem antes é a preparação; o que vem depois (`session.stop()`) é a limpeza.
+- **`scope="session"`** — a sessão é criada **uma única vez** para toda a execução (e não a cada teste, como seria no escopo `function` padrão).
+- **`yield session`** — o que vem antes é a preparação; o que vem depois (`session.stop()`) é a limpeza, executada ao final da suíte.
 - Qualquer teste que declare o parâmetro `spark` recebe essa sessão automaticamente.
+
+> Nas próximas subseções criaremos também **fixtures próprias** (ex.: arquivos de teste temporários). Elas usarão o escopo padrão (`function`) e poderão até **depender de outras fixtures** — veja no 13-I.
 
 ### 13-F. A anatomia de um teste: Arrange, Act, Assert
 
@@ -2847,7 +2858,9 @@ O `DataHandler` lê e escreve arquivos. Em vez de depender dos datasets reais (g
           assert spark.read.parquet(output_path).count() == 2
   ```
 
-> **`tmp_path`** entrega um diretório temporário isolado por teste, limpo automaticamente — testes que não deixam lixo são confiáveis.
+> **`tmp_path`** é uma fixture **nativa** do pytest: entrega um diretório temporário isolado por teste, limpo automaticamente — testes que não deixam lixo são confiáveis.
+>
+> Repare também que `arquivo_clientes_gz` e `arquivo_pedidos_gz` são **fixtures nossas** (escopo `function`, recriadas a cada teste) que **recebem `tmp_path` como parâmetro** — uma fixture dependendo de outra, o que o pytest chama de **composição de fixtures**. Cada teste que as declara já recebe o arquivo pronto.
 
 ### 13-J. Testando o disparo de exceções
 
