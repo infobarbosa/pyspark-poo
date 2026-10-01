@@ -1,0 +1,43 @@
+# exemplo-jdbc/settings.yaml
+#
+# Toda a configuracao do mundo externo vive aqui -- MENOS a senha.
+# Regra de ouro: se vazar este arquivo, ninguem consegue acessar o banco.
+
+spark:
+  app_name: "exemplo-jdbc"
+  # O driver JDBC e uma dependencia da JVM, NAO do Python.
+  # Por isso ele nao aparece no requirements.txt: o Spark baixa do Maven Central.
+  jars_packages: "org.postgresql:postgresql:42.7.4"
+
+jdbc:
+  url: "jdbc:postgresql://localhost:5432/loja"
+  user: "loja_app"
+  driver: "org.postgresql.Driver"
+  # A senha NAO fica aqui. Guardamos apenas o NOME da variavel de ambiente
+  # de onde ela sera lida em tempo de execucao.
+  senha_env: "JDBC_PASSWORD"
+
+leitura:
+  # Repare: nao lemos a tabela inteira. Mandamos uma subquery para que o
+  # filtro e a projecao rodem DENTRO do banco (predicate/projection pushdown).
+  dbtable: "(SELECT id_pedido, id_cliente, produto, valor_unitario, quantidade, uf FROM pedidos WHERE uf = 'MG') AS pedidos_mg"
+
+  # Sem este bloco, o Spark abre UMA unica conexao e traz tudo em um so
+  # particao -- ou seja, um cluster inteiro parado esperando um executor.
+  particionamento:
+    partition_column: "id_cliente"   # precisa ser numerica/data e bem distribuida
+    lower_bound: 1
+    upper_bound: 10000
+    num_partitions: 4                # = numero de conexoes simultaneas ao banco
+
+  # Quantas linhas o driver traz por viagem de rede. O default (10) e pessimo.
+  fetchsize: 10000
+
+escrita:
+  dbtable: "relatorio_top_10_clientes"
+  mode: "overwrite"
+  # Quantas linhas por INSERT em lote. Default 1000; aumentar reduz round-trips.
+  batchsize: 1000
+  # Com overwrite, o Spark faz DROP TABLE + CREATE por padrao (voce perde
+  # indices, constraints e permissoes). truncate=true so apaga as linhas.
+  truncate: true

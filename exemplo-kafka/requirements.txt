@@ -1,0 +1,5 @@
+# exemplo-kafka/requirements.txt
+# O conector spark-sql-kafka NAO entra aqui: e um .jar da JVM, resolvido
+# pelo Spark via `spark.jars.packages` (veja settings.yaml).
+pyspark==4.1.1
+pyyaml==6.0.3

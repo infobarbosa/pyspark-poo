@@ -1,0 +1,87 @@
+# exemplo-sparksession/settings.yaml
+#
+# O MESMO codigo roda em qualquer lugar. O que muda de um ambiente para o
+# outro e SO este arquivo. Se voce precisa editar o .py para rodar em
+# producao, a configuracao esta no lugar errado.
+
+perfil_ativo: "local"
+
+perfis:
+
+  # ------------------------------------------------------------------
+  # LOCAL -- a maquina do aluno. Roda de verdade.
+  # ------------------------------------------------------------------
+  local:
+    app_name: "exemplo-sparksession-local"
+    master: "local[*]"          # [*] = um thread por core disponivel
+    conf:
+      # Em modo local NAO existe executor separado: o driver faz tudo.
+      # Por isso quem manda na memoria aqui e o driver, nao o executor.
+      spark.driver.memory: "2g"                      # (veja a armadilha nº 2 no README)
+      spark.driver.maxResultSize: "512m"
+
+      # 200 particoes de shuffle para 100 MB de dados e desperdicio puro.
+      spark.sql.shuffle.partitions: "8"
+
+      # AQE corrige em tempo de execucao o que voce chutou errado aqui.
+      spark.sql.adaptive.enabled: "true"
+      spark.sql.adaptive.coalescePartitions.enabled: "true"
+      spark.sql.adaptive.skewJoin.enabled: "true"
+
+      # Fuso FIXO. Sem isto, o mesmo job da resultados diferentes no laptop
+      # do aluno e no cluster em UTC. (veja a armadilha nº 4 no README)
+      spark.sql.session.timeZone: "America/Sao_Paulo"
+
+      # overwrite apaga so as particoes tocadas, nao a tabela inteira.
+      spark.sql.sources.partitionOverwriteMode: "dynamic"
+
+      # Acelera toPandas() e pandas UDFs.
+      spark.sql.execution.arrow.pyspark.enabled: "true"
+
+      spark.ui.showConsoleProgress: "true"
+
+      # Nivel de log da JVM. Sem isto, as centenas de linhas INFO da
+      # inicializacao do Spark enterram a saida da sua aplicacao.
+      spark.log.level: "WARN"
+
+  # ------------------------------------------------------------------
+  # CLUSTER -- referencia. Nao roda no laptop, e de proposito:
+  # estes sao justamente os parametros que so existem em cluster.
+  # ------------------------------------------------------------------
+  cluster:
+    app_name: "exemplo-sparksession-prod"
+    master: "yarn"              # ou "k8s://https://<api-server>:6443"
+    conf:
+      # --- Recursos por executor ---
+      spark.executor.memory: "8g"
+      spark.executor.cores: "4"
+      spark.executor.memoryOverhead: "2g"    # JVM overhead + processos Python
+
+      # --- Elasticidade: pede e devolve executores conforme a demanda ---
+      spark.dynamicAllocation.enabled: "true"
+      spark.dynamicAllocation.minExecutors: "2"
+      spark.dynamicAllocation.maxExecutors: "20"
+      # Obrigatorio quando nao ha external shuffle service (ex.: Kubernetes).
+      spark.dynamicAllocation.shuffleTracking.enabled: "true"
+
+      # --- Shuffle e joins ---
+      spark.sql.shuffle.partitions: "400"
+      spark.sql.adaptive.enabled: "true"
+      spark.sql.adaptive.coalescePartitions.enabled: "true"
+      spark.sql.adaptive.skewJoin.enabled: "true"
+      spark.sql.autoBroadcastJoinThreshold: "50m"
+
+      # --- Leitura ---
+      spark.sql.files.maxPartitionBytes: "128m"
+
+      # --- Dependencias da JVM (mesma licao dos exemplos JDBC e Kafka) ---
+      spark.jars.packages: "org.postgresql:postgresql:42.7.4"
+
+      # --- Comportamento SQL: identico ao local, de proposito ---
+      spark.sql.session.timeZone: "America/Sao_Paulo"
+      spark.sql.sources.partitionOverwriteMode: "dynamic"
+      spark.sql.execution.arrow.pyspark.enabled: "true"
+
+      # --- Observabilidade: sem isto, job que terminou e job que sumiu ---
+      spark.eventLog.enabled: "true"
+      spark.eventLog.dir: "hdfs:///var/log/spark-events"

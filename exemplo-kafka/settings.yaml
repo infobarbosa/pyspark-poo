@@ -1,0 +1,30 @@
+# exemplo-kafka/settings.yaml
+
+spark:
+  app_name: "exemplo-kafka"
+  # Assim como o driver JDBC, o conector do Kafka e um .jar da JVM.
+  # Nao entra no requirements.txt. A versao DEVE casar com a do seu Spark
+  # (aqui: Spark 4.1.1 compilado com Scala 2.13).
+  jars_packages: "org.apache.spark:spark-sql-kafka-0-10_2.13:4.1.1"
+
+kafka:
+  bootstrap_servers: "localhost:9092"
+  topico: "pedidos"
+
+  # So vale na PRIMEIRA execucao. Da segunda em diante quem manda e o
+  # checkpoint -- o Spark retoma exatamente de onde parou.
+  starting_offsets: "earliest"
+
+  # Limita quantos registros entram por micro-batch. Sem isso, um topico com
+  # backlog de milhoes de mensagens vira um unico batch gigante que estoura
+  # a memoria do executor.
+  max_offsets_per_trigger: 1000
+
+saida:
+  path: "./exemplo-kafka/saida/pedidos"
+  # O checkpoint e o ESTADO da aplicacao: offsets processados e metadados
+  # de escrita. Apagar esta pasta = reprocessar tudo (ou perder dados).
+  checkpoint: "./exemplo-kafka/saida/_checkpoint/pedidos"
+  formato: "parquet"
+  # De quanto em quanto tempo o Spark dispara um micro-batch.
+  trigger: "10 seconds"
