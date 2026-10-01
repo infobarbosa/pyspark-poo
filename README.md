@@ -2550,7 +2550,7 @@ Convenção: um diretório `tests/` na raiz do projeto, **separado** de `src/` e
   data-engineering-pyspark/
   ├── pyproject.toml              # config do projeto e do pytest
   ├── src/
-  │   └── ...
+  │   └── data_engineering_pyspark/   # seu código, sob o namespace do pacote (Passo 12)
   └── tests/
       ├── __init__.py
       ├── conftest.py              # fixtures compartilhadas (ex.: SparkSession)
@@ -2583,7 +2583,7 @@ Sem configuração, o `import` das nossas classes falharia, pois o código fica 
   addopts = "-v"
   ```
 
-- **`pythonpath`** — adiciona `src/` ao caminho de import; por isso escrevemos `from processing.transformations import Transformation`.
+- **`pythonpath`** — a entrada `"src"` torna o pacote `data_engineering_pyspark` (criado no Passo 12) importável, permitindo escrever `from data_engineering_pyspark.processing.transformations import Transformation` — **exatamente como no `main.py`**. A segunda entrada (`"src/data_engineering_pyspark"`) é um atalho que também aceitaria o formato direto (`from processing...`), mas usamos o **namespace completo** por consistência com o restante do projeto.
 - **`testpaths`** — onde o pytest procura testes.
 - **`markers`** — rótulos para categorizar testes (ex.: `pytest -m unit`).
 - **`addopts`** — opções sempre aplicadas (`-v` para saída detalhada).
@@ -2662,7 +2662,7 @@ A classe mais crítica: contém as regras de negócio. Como é lógica pura, cri
       StructField, StructType, TimestampType,
   )
 
-  from processing.transformations import Transformation
+  from data_engineering_pyspark.processing.transformations import Transformation
 
 
   SCHEMA_PEDIDOS = StructType([
@@ -2788,8 +2788,8 @@ O `DataHandler` lê e escreve arquivos. Em vez de depender dos datasets reais (g
   import pytest
   from pyspark.sql.types import FloatType, LongType
 
-  from io_utils.data_handler import DataHandler
-  from io_utils.exceptions import LoadPedidosException
+  from data_engineering_pyspark.io_utils.data_handler import DataHandler
+  from data_engineering_pyspark.io_utils.exceptions import LoadPedidosException
 
 
   @pytest.fixture
@@ -2900,7 +2900,7 @@ Os mais rápidos da suíte — validam só a leitura do YAML e nem precisam de S
   import pytest
   import yaml
 
-  from config.settings import carregar_config
+  from data_engineering_pyspark.config.settings import carregar_config
 
 
   @pytest.fixture
@@ -2943,7 +2943,7 @@ Verificamos o **contrato público**: retornar uma `SparkSession` e reutilizar a 
   # tests/unit/test_spark_session.py
   from pyspark.sql import SparkSession
 
-  from session.spark_session import SparkSessionManager
+  from data_engineering_pyspark.session.spark_session import SparkSessionManager
 
 
   class TestSparkSessionManager:
@@ -2983,9 +2983,9 @@ Aproveitando a injeção de dependências do [Passo 7](#passo-7-injeção-de-dep
       StructField, StructType, TimestampType,
   )
 
-  from io_utils.data_handler import DataHandler
-  from pipeline.pipeline import Pipeline
-  from processing.transformations import Transformation
+  from data_engineering_pyspark.io_utils.data_handler import DataHandler
+  from data_engineering_pyspark.pipeline.pipeline import Pipeline
+  from data_engineering_pyspark.processing.transformations import Transformation
 
 
   SCHEMA_PEDIDOS = StructType([
@@ -3129,7 +3129,7 @@ Rodar **apenas** uma camada:
 Cobertura indica **quais linhas do código foram exercitadas** pelos testes. 100% não garante ausência de bugs, mas cobertura baixa aponta pontos cegos.
 
   ```bash
-  pytest ./data-engineering-pyspark --cov=./data-engineering-pyspark/src --cov-report=term-missing
+  pytest ./data-engineering-pyspark --cov=data_engineering_pyspark --cov-report=term-missing
 
   ```
 
@@ -3137,22 +3137,22 @@ A saída mostra a porcentagem por arquivo e **quais linhas faltam** (`Missing`):
 
   ```
   ---------- coverage: ... ----------
-  Name                                 Stmts   Miss  Cover   Missing
-  ------------------------------------------------------------------
-  src/config/settings.py                   3      0   100%
-  src/io_utils/data_handler.py            24      2    92%   40-41
-  src/io_utils/exceptions.py               4      0   100%
-  src/pipeline/pipeline.py                25      0   100%
-  src/processing/transformations.py        9      0   100%
-  src/session/spark_session.py             4      0   100%
-  ------------------------------------------------------------------
-  TOTAL                                   69      4    94%
+  Name                                                         Stmts   Miss  Cover   Missing
+  ------------------------------------------------------------------------------------------
+  src/data_engineering_pyspark/config/settings.py                 10      1    90%   22
+  src/data_engineering_pyspark/io_utils/data_handler.py           24      2    92%   40-41
+  src/data_engineering_pyspark/io_utils/exceptions.py              4      0   100%
+  src/data_engineering_pyspark/pipeline/pipeline.py               25      0   100%
+  src/data_engineering_pyspark/processing/transformations.py       9      0   100%
+  src/data_engineering_pyspark/session/spark_session.py            4      0   100%
+  ------------------------------------------------------------------------------------------
+  TOTAL                                                           76      3    96%
   ```
 
 Relatório navegável em HTML:
 
   ```bash
-  pytest ./data-engineering-pyspark --cov=./data-engineering-pyspark/src --cov-report=html
+  pytest ./data-engineering-pyspark --cov=data_engineering_pyspark --cov-report=html
   # abra htmlcov/index.html no navegador
 
   ```
