@@ -22,6 +22,7 @@ Este repositório é um guia passo a passo para refatorar um script PySpark mono
 - [Passo 11: Qualidade do Código com Linter e Formatador](#passo-11-qualidade-do-código-com-linter-e-formatador)
 - [Passo 12: Empacotamento da Aplicação para Distribuição](#passo-12-empacotamento-da-aplicação-para-distribuição)
 - [Passo 13: Testes Automatizados](#passo-13-testes-automatizados)
+- [Passo 14: Automação de Tarefas com Makefile](#passo-14-automação-de-tarefas-com-makefile)
 - [Desafio Final](#desafio)
 
 ---
@@ -3175,6 +3176,375 @@ Com testes **parametrizados** (casos de borda sem duplicação), **teste de exce
 
 ---
 
+## Passo 14: Automação de Tarefas com Makefile
+
+Ao longo dos passos anteriores, construímos uma suíte completa de ferramentas para garantir a qualidade e a distribuição da nossa aplicação:
+- Formatação de código com `black`
+- Verificação de estilo e qualidade (linter) com `ruff`
+- Execução de testes automatizados com `pytest`
+- Análise de cobertura de código com `pytest-cov`
+- Empacotamento em formato distribuível Wheel com `build`
+- Execução distribuída com `spark-submit`
+
+No entanto, executar cada um desses comandos individualmente no terminal exige digitar flags longas e caminhos complexos. Em equipes de engenharia, essa abordagem manual costuma gerar falhas humanas: desenvolvedores esquecem parâmetros importantes, executam etapas em ordens incorretas ou deixam de rodar validações essenciais antes de abrir um Pull Request.
+
+Neste passo, criaremos uma **interface unificada de automação** usando o **GNU Make**, padronizando as operações do projeto em comandos simples como `make lint`, `make test`, `make build` e `make clean`.
+
+---
+
+### 14-A. Por que automatizar tarefas em Engenharia de Dados?
+
+O objetivo de um executor de tarefas (*task runner*) é servir como ponto de contato único para o desenvolvedor e para as esteiras de integração contínua (CI/CD):
+1. **Redução de carga cognitiva:** O desenvolvedor não precisa memorizar comandos extensos como `pytest --cov=data_engineering_pyspark --cov-report=term-missing`. Ele simplesmente digita `make coverage`.
+2. **Consistência entre ambientes:** O mesmo comando executado localmente na máquina do desenvolvedor é o comando executado no GitHub Actions ou no GitLab CI.
+3. **Documentação executável:** O arquivo `Makefile` funciona como uma documentação viva que lista todas as operações suportadas pelo projeto.
+
+---
+
+### 14-B. Mudança para o diretório do projeto e ajuste de caminhos
+
+> [!NOTE]
+> **Conveniência pedagógica dos passos anteriores:**
+> Do Passo 0 ao Passo 13, executamos todos os comandos a partir do diretório raiz externo utilizando o prefixo `./data-engineering-pyspark/...`. Essa escolha foi uma conveniência pedagógica para manter o foco na construção da arquitetura e no código sem alternar de diretório a cada etapa.
+>
+> No dia a dia de projetos reais, no entanto, o fluxo de trabalho profissional de desenvolvimento, automação, testes e empacotamento é realizado **diretamente dentro da pasta raiz do projeto**.
+
+A partir deste Passo 14, presume-se que todas as operações serão executadas dentro da pasta do projeto. 
+
+Navegue para o diretório da aplicação:
+
+```bash
+cd ./data-engineering-pyspark
+```
+
+Como agora o diretório corrente de execução é `data-engineering-pyspark/`, precisamos fazer dois pequenos ajustes de caminhos relativos para garantir compatibilidade total:
+
+#### 1. Ajuste em `config/settings.yaml`
+Abra o arquivo `config/settings.yaml` e remova o prefixo `./data-engineering-pyspark/` da seção `paths`:
+
+```yaml
+paths:
+  clientes: "./data/input/dataset-json-clientes/data/clientes.json.gz"
+  pedidos: "./data/input/datasets-csv-pedidos/data/pedidos/"
+  output: "./data/output/pedidos_por_cliente"
+```
+
+O arquivo `config/settings.yaml` completo deve ficar assim:
+
+```yaml
+spark:
+  app_name: "Analise de Pedidos"
+
+paths:
+  clientes: "./data/input/dataset-json-clientes/data/clientes.json.gz"
+  pedidos: "./data/input/datasets-csv-pedidos/data/pedidos/"
+  output: "./data/output/pedidos_por_cliente"
+
+file_options:
+  pedidos_csv:
+    compression: "gzip"
+    header: True
+    sep: ";"
+
+logging:
+  version: 1
+  disable_existing_loggers: False
+  formatters:
+    padrao:
+      format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+      datefmt: "%Y-%m-%d %H:%M:%S"
+  handlers:
+    console:
+      class: logging.StreamHandler
+      level: INFO
+      formatter: padrao
+      stream: ext://sys.stdout
+    file:
+      class: logging.FileHandler
+      level: INFO
+      formatter: padrao
+      filename: "dataeng-pyspark-poo.log"
+  root:
+    level: INFO
+    handlers: [console, file]
+```
+
+#### 2. Ajuste do fallback em `src/data_engineering_pyspark/config/settings.py`
+Na função `carregar_config()`, atualize o caminho de fallback padrão para apontar diretamente para `config/settings.yaml`:
+
+```python
+def carregar_config(path: str = None) -> dict:
+    """Carrega o arquivo de configuração YAML da aplicação.
+
+    Ordem de resolução:
+    1. Caminho explícito fornecido por argumento
+    2. 'settings.yaml' na raiz de execução (quando distribuído via spark-submit --files)
+    3. 'config/settings.yaml' (desenvolvimento local na raiz do projeto)
+    """
+    if path:
+        caminho = Path(path)
+    elif Path("settings.yaml").exists():
+        caminho = Path("settings.yaml")
+    else:
+        caminho = Path("config/settings.yaml")
+
+    with open(caminho, 'r', encoding='utf-8') as file:
+        return yaml.safe_load(file)
+```
+
+Com essas duas alterações, a leitura de arquivos e a execução passam a operar de forma consistente a partir da pasta do projeto.
+
+---
+
+### 14-C. A estrutura de um Makefile e a exigência de TABs
+
+Um `Makefile` é composto por regras que definem alvos (*targets*), pré-requisitos e receitas:
+
+```makefile
+alvo: dependencias
+	receita (comando executado pelo shell)
+```
+
+- **Alvo (*target*):** O nome da ação a ser executada (ex.: `test`, `lint`, `clean`).
+- **Dependências:** Alvos que precisam ser executados antes do alvo atual.
+- **Receita (*recipe*):** Linhas de comando do sistema operacional que realizam a tarefa.
+
+> [!IMPORTANT]
+> **Atenção à indentação com TAB:**
+> O GNU Make exige obrigatoriamente que as linhas de comando de uma receita sejam indentadas com um caractere **TAB** (`\t`), e **não com espaços**.
+> Se você utilizar espaços para indentar os comandos, o Make falhará ao carregar o arquivo com o erro de sintaxe:
+> ```text
+> Makefile:XX: *** missing separator. Stop.
+> ```
+> Certifique-se de que seu editor de código preserve caracteres TAB em arquivos com nome `Makefile`.
+
+---
+
+### 14-D. O conceito de `.PHONY`
+
+Originalmente, o Make foi desenvolvido para compilar programas em linguagens como C, onde cada alvo representava um arquivo real que seria gerado em disco. O Make compara a data de modificação dos arquivos para decidir se precisa recompilar o alvo ou se ele já está atualizado.
+
+No nosso pipeline Python, a maioria dos alvos não gera um arquivo com o mesmo nome do alvo. Alvos como `test`, `lint`, `clean` ou `build` são ações utilitárias.
+
+Isso gera um problema quando existe uma pasta no projeto com o mesmo nome do alvo. Por exemplo, nosso empacotamento cria um diretório chamado `build/`. Se digitarmos `make build` sem configurações adicionais, o Make verificará que o diretório `build` já existe no disco e emitirá a mensagem:
+
+```text
+make: 'build' is up to date.
+```
+
+O comando de compilação simplesmente não será executado.
+
+Para evitar esse comportamento, declaramos os alvos utilitários na diretiva especial `.PHONY`. Isso instrui o Make a executar a receita incondicionalmente, sem verificar se existe um arquivo ou diretório correspondente no sistema de arquivos:
+
+```makefile
+.PHONY: help install format lint test coverage build run clean check
+```
+
+---
+
+### 14-E. Criando o `Makefile` do Projeto
+
+Crie o arquivo `Makefile` na raiz do projeto `data-engineering-pyspark/` (no mesmo diretório onde reside o `pyproject.toml`):
+
+```bash
+touch Makefile
+```
+
+Adicione o seguinte conteúdo ao `Makefile`:
+
+```makefile
+.PHONY: help install format lint test coverage build run clean check
+
+PYTHON := python3
+PIP := pip
+
+help:
+	@echo "Comandos disponíveis no projeto:"
+	@echo "  make install   - Instala as dependências a partir do requirements.txt"
+	@echo "  make format    - Formata o código-fonte com black"
+	@echo "  make lint      - Verifica conformidade de código (black + ruff)"
+	@echo "  make test      - Executa a suíte de testes com pytest"
+	@echo "  make coverage  - Executa testes e exibe relatório de cobertura no terminal"
+	@echo "  make build     - Compila o pacote distribuível (.whl)"
+	@echo "  make run       - Executa o pipeline via spark-submit"
+	@echo "  make clean     - Remove artefatos de compilação, caches e diretórios temporários"
+	@echo "  make check     - Executa validação completa de qualidade (lint + test)"
+
+install:
+	$(PIP) install -r requirements.txt
+
+format:
+	black .
+
+lint:
+	black --check .
+	ruff check .
+
+test:
+	pytest
+
+coverage:
+	pytest --cov=data_engineering_pyspark --cov-report=term-missing
+
+build:
+	$(PYTHON) -m build
+
+run:
+	spark-submit --master "local[*]" \
+		--py-files dist/data_engineering_pyspark-0.1.0-py3-none-any.whl \
+		--files config/settings.yaml \
+		src/main.py
+
+clean:
+	rm -rf dist build *.egg-info .pytest_cache .ruff_cache htmlcov .coverage
+	find . -type d -name "__pycache__" -exec rm -rf {} +
+	rm -rf data/output/*
+
+check: lint test
+```
+
+> **Composição de tarefas:** Observe o alvo `check: lint test`. Ele estabelece uma cadeia de dependência: primeiro executa o `lint` e, apenas se nenhuma violação for encontrada, executa o `test`. É o comando recomendado para ser executado antes de criar um commit ou enviar um Pull Request.
+
+---
+
+### 14-F. Executando e validando os alvos no terminal
+
+Com o terminal posicionado em `data-engineering-pyspark/`, vamos validar os comandos:
+
+#### 1. Visualizando o menu de comandos
+```bash
+make help
+```
+Saída esperada:
+```text
+Comandos disponíveis no projeto:
+  make install   - Instala as dependências a partir do requirements.txt
+  make format    - Formata o código-fonte com black
+  make lint      - Verifica conformidade de código (black + ruff)
+  make test      - Executa a suíte de testes com pytest
+  make coverage  - Executa testes e exibe relatório de cobertura no terminal
+  make build     - Compila o pacote distribuível (.whl)
+  make run       - Executa o pipeline via spark-submit
+  make clean     - Remove artefatos de compilação, caches e diretórios temporários
+  make check     - Executa validação completa de qualidade (lint + test)
+```
+
+#### 2. Executando a validação de qualidade (Lint + Testes)
+```bash
+make check
+```
+O Make executará sequencialmente a checagem do `black`, do `ruff` e os testes do `pytest`. Se qualquer etapa falhar, o processo é interrompido imediatamente.
+
+#### 3. Verificando a cobertura de testes
+```bash
+make coverage
+```
+Executa os testes e imprime a tabela de cobertura das linhas do pacote `data_engineering_pyspark`.
+
+#### 4. Gerando o pacote distribuível
+```bash
+make build
+```
+Gera os artefatos `.whl` e `.tar.gz` na pasta `dist/`.
+
+#### 5. Executando o pipeline com Spark
+```bash
+make run
+```
+Submete o pipeline localmente ao `spark-submit` utilizando o pacote `.whl` compilado e o arquivo de configuração `settings.yaml`.
+
+#### 6. Limpando resíduos e caches
+```bash
+make clean
+```
+Remove diretórios temporários (`dist/`, `build/`, `.pytest_cache/`, `.ruff_cache/`, arquivos `.coverage` e pastas `__pycache__`), deixando o repositório limpo.
+
+---
+
+### 14-G. No Radar do Mercado: A evolução com Just
+
+> [!NOTE]
+> **Por que times modernos de dados utilizam o `just`?**
+>
+> Embora o **GNU Make** seja a ferramenta padrão em ambientes corporativos e esteiras de CI/CD (por vir pré-instalado em sistemas Unix e ambientes como AWS Cloud9), ele foi originalmente projetado em 1976 para compilar arquivos em linguagens como C.
+>
+> Para projetos em Python onde precisamos apenas de um executor de comandos, ferramentas de *task running* dedicadas ganharam destaque. Entre elas, o **`just`** (escrito em Rust) tem sido amplamente adotado em novos projetos por simplificar a experiência do desenvolvedor:
+>
+> 1. **Indentação flexível:** O `just` aceita espaços comuns ou tabs, sem exigir caracteres TAB obrigatórios.
+> 2. **Sem necessidade de `.PHONY`:** No `just`, todas as tarefas são tratadas como comandos por padrão, sem conflitos com pastas existentes no disco.
+> 3. **Documentação automática:** Comentários colocados acima de cada receita aparecem automaticamente no comando `just --list` ou ao digitar apenas `just`.
+>
+> Exemplo de um arquivo `justfile` equivalente para a nossa aplicação:
+>
+> ```just
+> # justfile
+> default:
+>     @just --list
+>
+> # Instala as dependências do projeto
+> install:
+>     pip install -r requirements.txt
+>
+> # Formata o código com black
+> format:
+>     black .
+>
+> # Verifica qualidade do código com black e ruff
+> lint:
+>     black --check .
+>     ruff check .
+>
+> # Executa os testes automatizados
+> test:
+>     pytest
+>
+> # Executa os testes com relatório de cobertura
+> coverage:
+>     pytest --cov=data_engineering_pyspark --cov-report=term-missing
+>
+> # Compila o pacote distribuível (.whl)
+> build:
+>     python3 -m build
+>
+> # Executa o pipeline no Spark
+> run:
+>     spark-submit --master "local[*]" \
+>         --py-files dist/data_engineering_pyspark-0.1.0-py3-none-any.whl \
+>         --files config/settings.yaml \
+>         src/main.py
+>
+> # Limpa diretórios temporários e caches
+> clean:
+>     rm -rf dist build *.egg-info .pytest_cache .ruff_cache htmlcov .coverage
+>     find . -type d -name "__pycache__" -exec rm -rf {} +
+>     rm -rf data/output/*
+>
+> # Executa verificação completa (lint + test)
+> check: lint test
+> ```
+>
+> Conhecer o **GNU Make** garante que você opere com facilidade em qualquer servidor ou repositório da indústria, enquanto conhecer o **Just** prepara você para as práticas modernas de produtividade em times ágeis.
+
+---
+
+### 14-H. Recapitulando o ciclo de engenharia de software
+
+Com o `Makefile`, consolidamos a operação de todas as fases desenvolvidas ao longo deste guia:
+
+| Alvo | Ferramenta Subjacente | Papel no Pipeline |
+|---|---|---|
+| `install` | `pip` | Reprodutibilidade do ambiente de desenvolvimento |
+| `format` | `black` | Padronização estética de código (PEP 8) |
+| `lint` | `black` + `ruff` | Análise estática, detecção de erros e remoção de código morto |
+| `test` | `pytest` | Validação de comportamento e prevenção de regressões |
+| `coverage`| `pytest-cov` | Medição da cobertura das linhas de código testadas |
+| `build` | `build` | Geração do binário portátil Wheel (`.whl`) |
+| `run` | `spark-submit` | Execução distribuída com injeção de dependências e configs |
+| `clean` | `rm` + `find` | Higienização de artefatos temporários e caches |
+| `check` | `lint` + `test` | Portão de qualidade (*Quality Gate*) para integração contínua |
+
+---
+
 ## Parabéns! 
 Você completou a jornada de transformar um simples script em uma aplicação Python robusta, de alta qualidade e distribuível.
 
@@ -3290,7 +3660,10 @@ As especificações do dataset (formato, estrutura de atributos, etc) estão dis
 - [Documentação do Pytest](https://docs.pytest.org/): Guia completo para a criação e organização de testes automatizados em Python.
 
 ### Ferramentas e Bibliotecas
+- [GNU Make Manual](https://www.gnu.org/software/make/manual/): Referência técnica oficial sobre regras, variáveis e diretivas do GNU Make.
+- [Just - Command Runner](https://github.com/casey/just): Documentação oficial do executor de tarefas moderno alternativo ao Make.
 - [Black (Formatador de Código)](https://black.readthedocs.io/): O formatador de código Python rigoroso (uncompromising code formatter).
+- [Ruff (Linter e Formatador)](https://docs.astral.sh/ruff/): Linter e formatador de código Python de alta performance em Rust.
 - [Flake8 (Linter)](https://flake8.pycqa.org/): Ferramenta para verificação de estilo de código e identificação de erros de sintaxe.
 - [Poetry (Gestão de Dependências)](https://python-poetry.org/): Excelente para gestão de pacotes, dependências e ambientes virtuais em Python.
 
