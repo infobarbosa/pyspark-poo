@@ -3220,20 +3220,53 @@ cd ./data-engineering-pyspark
 Como agora o diretório corrente de execução é `data-engineering-pyspark/`, precisamos fazer dois pequenos ajustes de caminhos relativos para garantir compatibilidade total:
 
 #### 1. Ajuste em `config/settings.yaml`
-Abra o arquivo `config/settings.yaml` e remova o prefixo `./data-engineering-pyspark/` dos caminhos de dados:
+Abra o arquivo `config/settings.yaml` e remova o prefixo `./data-engineering-pyspark/` da seção `paths`:
 
 ```yaml
-app:
-  name: "PipelinePedidosConsolidados"
+paths:
+  clientes: "./data/input/dataset-json-clientes/data/clientes.json.gz"
+  pedidos: "./data/input/datasets-csv-pedidos/data/pedidos/"
+  output: "./data/output/pedidos_por_cliente"
+```
+
+O arquivo `config/settings.yaml` completo deve ficar assim:
+
+```yaml
+spark:
+  app_name: "Analise de Pedidos"
 
 paths:
-  pedidos: "./data/input/pedidos.json"
-  clientes: "./data/input/clientes.csv"
-  saida: "./data/output/pedidos_consolidados"
+  clientes: "./data/input/dataset-json-clientes/data/clientes.json.gz"
+  pedidos: "./data/input/datasets-csv-pedidos/data/pedidos/"
+  output: "./data/output/pedidos_por_cliente"
+
+file_options:
+  pedidos_csv:
+    compression: "gzip"
+    header: True
+    sep: ";"
 
 logging:
-  level: "INFO"
-  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  version: 1
+  disable_existing_loggers: False
+  formatters:
+    padrao:
+      format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+      datefmt: "%Y-%m-%d %H:%M:%S"
+  handlers:
+    console:
+      class: logging.StreamHandler
+      level: INFO
+      formatter: padrao
+      stream: ext://sys.stdout
+    file:
+      class: logging.FileHandler
+      level: INFO
+      formatter: padrao
+      filename: "dataeng-pyspark-poo.log"
+  root:
+    level: INFO
+    handlers: [console, file]
 ```
 
 #### 2. Ajuste do fallback em `src/data_engineering_pyspark/config/settings.py`
