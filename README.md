@@ -2347,27 +2347,17 @@ Atualize também os imports nos arquivos internos que referenciam outros módulo
       Ordem de resolução:
       1. Caminho explícito fornecido por argumento
       2. 'settings.yaml' na raiz de execução (quando distribuído via spark-submit --files)
-      3. './data-engineering-pyspark/config/settings.yaml' ou 'config/settings.yaml' (desenvolvimento local)
+      3. './data-engineering-pyspark/config/settings.yaml' (desenvolvimento local na IDE)
       """
       if path:
           caminho = Path(path)
       elif Path("settings.yaml").exists():
           caminho = Path("settings.yaml")
-      elif Path("config/settings.yaml").exists():
-          caminho = Path("config/settings.yaml")
       else:
           caminho = Path("./data-engineering-pyspark/config/settings.yaml")
 
       with open(caminho, 'r', encoding='utf-8') as file:
-          config = yaml.safe_load(file)
-
-      # Ajusta caminhos caso o comando seja executado a partir do diretório do projeto
-      if Path("src").exists() and not Path("data-engineering-pyspark").exists():
-          for k, v in config.get("paths", {}).items():
-              if isinstance(v, str) and v.startswith("./data-engineering-pyspark/"):
-                  config["paths"][k] = "./" + v[len("./data-engineering-pyspark/"):]
-
-      return config
+          return yaml.safe_load(file)
 
   def configurar_logging(config_logging: dict):
       """Aplica a configuração de logging lida do YAML."""
@@ -3205,13 +3195,75 @@ Neste passo, criaremos uma **interface unificada de automação** usando o **GNU
 ### 14-A. Por que automatizar tarefas em Engenharia de Dados?
 
 O objetivo de um executor de tarefas (*task runner*) é servir como ponto de contato único para o desenvolvedor e para as esteiras de integração contínua (CI/CD):
-1. **Redução de carga cognitiva:** O desenvolvedor não precisa memorizar comandos extensos como `pytest ./data-engineering-pyspark --cov=data_engineering_pyspark --cov-report=term-missing`. Ele simplesmente digita `make coverage`.
+1. **Redução de carga cognitiva:** O desenvolvedor não precisa memorizar comandos extensos como `pytest --cov=data_engineering_pyspark --cov-report=term-missing`. Ele simplesmente digita `make coverage`.
 2. **Consistência entre ambientes:** O mesmo comando executado localmente na máquina do desenvolvedor é o comando executado no GitHub Actions ou no GitLab CI.
 3. **Documentação executável:** O arquivo `Makefile` funciona como uma documentação viva que lista todas as operações suportadas pelo projeto.
 
 ---
 
-### 14-B. A estrutura de um Makefile e a exigência de TABs
+### 14-B. Mudança para o diretório do projeto e ajuste de caminhos
+
+> [!NOTE]
+> **Conveniência pedagógica dos passos anteriores:**
+> Do Passo 0 ao Passo 13, executamos todos os comandos a partir do diretório raiz externo utilizando o prefixo `./data-engineering-pyspark/...`. Essa escolha foi uma conveniência pedagógica para manter o foco na construção da arquitetura e no código sem alternar de diretório a cada etapa.
+>
+> No dia a dia de projetos reais, no entanto, o fluxo de trabalho profissional de desenvolvimento, automação, testes e empacotamento é realizado **diretamente dentro da pasta raiz do projeto**.
+
+A partir deste Passo 14, presume-se que todas as operações serão executadas dentro da pasta do projeto. 
+
+Navegue para o diretório da aplicação:
+
+```bash
+cd ./data-engineering-pyspark
+```
+
+Como agora o diretório corrente de execução é `data-engineering-pyspark/`, precisamos fazer dois pequenos ajustes de caminhos relativos para garantir compatibilidade total:
+
+#### 1. Ajuste em `config/settings.yaml`
+Abra o arquivo `config/settings.yaml` e remova o prefixo `./data-engineering-pyspark/` dos caminhos de dados:
+
+```yaml
+app:
+  name: "PipelinePedidosConsolidados"
+
+paths:
+  pedidos: "./data/input/pedidos.json"
+  clientes: "./data/input/clientes.csv"
+  saida: "./data/output/pedidos_consolidados"
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+```
+
+#### 2. Ajuste do fallback em `src/data_engineering_pyspark/config/settings.py`
+Na função `carregar_config()`, atualize o caminho de fallback padrão para apontar diretamente para `config/settings.yaml`:
+
+```python
+def carregar_config(path: str = None) -> dict:
+    """Carrega o arquivo de configuração YAML da aplicação.
+
+    Ordem de resolução:
+    1. Caminho explícito fornecido por argumento
+    2. 'settings.yaml' na raiz de execução (quando distribuído via spark-submit --files)
+    3. 'config/settings.yaml' (desenvolvimento local na raiz do projeto)
+    """
+    if path:
+        caminho = Path(path)
+    elif Path("settings.yaml").exists():
+        caminho = Path("settings.yaml")
+    else:
+        caminho = Path("config/settings.yaml")
+
+    with open(caminho, 'r', encoding='utf-8') as file:
+        return yaml.safe_load(file)
+```
+
+Com essas duas alterações, a leitura de arquivos e a execução passam a operar de forma consistente a partir da pasta do projeto.
+
+---
+
+### 14-C. A estrutura de um Makefile e a exigência de TABs
 
 Um `Makefile` é composto por regras que definem alvos (*targets*), pré-requisitos e receitas:
 
@@ -3231,11 +3283,11 @@ alvo: dependencias
 > ```text
 > Makefile:XX: *** missing separator. Stop.
 > ```
-> Configure seu editor de código para preservar caracteres TAB em arquivos com nome `Makefile`.
+> Certifique-se de que seu editor de código preserve caracteres TAB em arquivos com nome `Makefile`.
 
 ---
 
-### 14-C. O conceito fundamental: `.PHONY`
+### 14-D. O conceito de `.PHONY`
 
 Originalmente, o Make foi desenvolvido para compilar programas em linguagens como C, onde cada alvo representava um arquivo real que seria gerado em disco. O Make compara a data de modificação dos arquivos para decidir se precisa recompilar o alvo ou se ele já está atualizado.
 
@@ -3247,7 +3299,7 @@ Isso gera um problema quando existe uma pasta no projeto com o mesmo nome do alv
 make: 'build' is up to date.
 ```
 
-O comando de compilação simplesmente não será executado!
+O comando de compilação simplesmente não será executado.
 
 Para evitar esse comportamento, declaramos os alvos utilitários na diretiva especial `.PHONY`. Isso instrui o Make a executar a receita incondicionalmente, sem verificar se existe um arquivo ou diretório correspondente no sistema de arquivos:
 
@@ -3257,15 +3309,15 @@ Para evitar esse comportamento, declaramos os alvos utilitários na diretiva esp
 
 ---
 
-### 14-D. Criando o `Makefile` do Projeto
+### 14-E. Criando o `Makefile` do Projeto
 
-Crie o arquivo `./data-engineering-pyspark/Makefile` na raiz da sua aplicação Python (no mesmo diretório onde reside o `pyproject.toml`):
+Crie o arquivo `Makefile` na raiz do projeto `data-engineering-pyspark/` (no mesmo diretório onde reside o `pyproject.toml`):
 
 ```bash
-touch ./data-engineering-pyspark/Makefile
+touch Makefile
 ```
 
-Adicione o seguinte conteúdo ao `./data-engineering-pyspark/Makefile`:
+Adicione o seguinte conteúdo ao `Makefile`:
 
 ```makefile
 .PHONY: help install format lint test coverage build run clean check
@@ -3318,17 +3370,13 @@ clean:
 check: lint test
 ```
 
-> **Composição de tarefas:** Observe o alvo `check: lint test`. Ele estabelece uma cadeia de dependência: primeiro executa o `lint` e, apenas se nenhuma violação for encontrada, executa o `test`. É o comando ideal para ser executado antes de criar um commit ou enviar um Pull Request.
+> **Composição de tarefas:** Observe o alvo `check: lint test`. Ele estabelece uma cadeia de dependência: primeiro executa o `lint` e, apenas se nenhuma violação for encontrada, executa o `test`. É o comando recomendado para ser executado antes de criar um commit ou enviar um Pull Request.
 
 ---
 
-### 14-E. Executando e validando os alvos no terminal
+### 14-F. Executando e validando os alvos no terminal
 
-Para testar o `Makefile`, navegue até a pasta do projeto onde ele foi criado:
-
-```bash
-cd ./data-engineering-pyspark
-```
+Com o terminal posicionado em `data-engineering-pyspark/`, vamos validar os comandos:
 
 #### 1. Visualizando o menu de comandos
 ```bash
@@ -3380,10 +3428,10 @@ Remove diretórios temporários (`dist/`, `build/`, `.pytest_cache/`, `.ruff_cac
 
 ---
 
-### 14-F. No Radar do Mercado: A evolução com Just
+### 14-G. No Radar do Mercado: A evolução com Just
 
 > [!NOTE]
-> **🚀 Por que times modernos de dados utilizam o `just`?**
+> **Por que times modernos de dados utilizam o `just`?**
 >
 > Embora o **GNU Make** seja a ferramenta padrão em ambientes corporativos e esteiras de CI/CD (por vir pré-instalado em sistemas Unix e ambientes como AWS Cloud9), ele foi originalmente projetado em 1976 para compilar arquivos em linguagens como C.
 >
@@ -3442,11 +3490,11 @@ Remove diretórios temporários (`dist/`, `build/`, `.pytest_cache/`, `.ruff_cac
 > check: lint test
 > ```
 >
-> Conhecer o **GNU Make** garante que você opere com facilidade em qualquer servidor ou repositório legado da indústria, enquanto conhecer o **Just** prepara você para as práticas mais modernas de produtividade em times ágeis.
+> Conhecer o **GNU Make** garante que você opere com facilidade em qualquer servidor ou repositório da indústria, enquanto conhecer o **Just** prepara você para as práticas modernas de produtividade em times ágeis.
 
 ---
 
-### 14-G. Recapitulando o ciclo de engenharia de software
+### 14-H. Recapitulando o ciclo de engenharia de software
 
 Com o `Makefile`, consolidamos a operação de todas as fases desenvolvidas ao longo deste guia:
 
