@@ -2739,31 +2739,34 @@ Escrever um método de teste para cada valor de entrada gera duplicação. O `@p
 
 Compare com a subseção anterior (um método por caso). Aqui cobrimos vários cenários de `add_valor_total_pedidos` em uma única função:
 
-- Acrescente ao `tests/unit/test_transformations.py`:
+- Acrescente os novos métodos à classe `TestAddValorTotalPedidos` em `tests/unit/test_transformations.py`:
 
   ```python
-  @pytest.mark.parametrize(
-      "valor_unitario, quantidade, esperado",
-      [
-          (10.0, 2, 20.0),     # caminho feliz
-          (500.0, 0, 0.0),     # item devolvido: quantidade zero
-          (1500.0, 1, 1500.0), # unidade única
-      ],
-  )
-  def test_add_valor_total_parametrizado(spark, valor_unitario, quantidade, esperado):
-      """Mesmo cálculo, vários cenários — cada tupla vira um teste independente."""
-      df = spark.createDataFrame(
-          [("p1", "TV", valor_unitario, quantidade, None, "SP", 1)], SCHEMA_PEDIDOS,
+  class TestAddValorTotalPedidos:
+
+      # (mantenha o def test_calcula_valor_total já existente)
+
+      @pytest.mark.parametrize(
+          "valor_unitario, quantidade, esperado",
+          [
+              (10.0, 2, 20.0),     # caminho feliz
+              (500.0, 0, 0.0),     # item devolvido: quantidade zero
+              (1500.0, 1, 1500.0), # unidade única
+          ],
       )
-      resultado = Transformation().add_valor_total_pedidos(df)
-      assert resultado.collect()[0].valor_total == pytest.approx(esperado)
+      def test_add_valor_total_parametrizado(self, spark, valor_unitario, quantidade, esperado):
+          """Mesmo cálculo, vários cenários — cada tupla vira um teste independente."""
+          df = spark.createDataFrame(
+              [("p1", "TV", valor_unitario, quantidade, None, "SP", 1)], SCHEMA_PEDIDOS,
+          )
+          resultado = Transformation().add_valor_total_pedidos(df)
+          assert resultado.collect()[0].valor_total == pytest.approx(esperado)
 
-
-  def test_add_valor_total_propaga_nulo(spark):
-      """NULL em valor_unitario se propaga (aritmética do Spark) — caso especial, fora do parametrize."""
-      df = spark.createDataFrame([("p1", "TV", None, 2, None, "SP", 1)], SCHEMA_PEDIDOS)
-      resultado = Transformation().add_valor_total_pedidos(df)
-      assert resultado.collect()[0].valor_total is None
+      def test_add_valor_total_propaga_nulo(self, spark):
+          """NULL em valor_unitario se propaga (aritmética do Spark) — caso especial, fora do parametrize."""
+          df = spark.createDataFrame([("p1", "TV", None, 2, None, "SP", 1)], SCHEMA_PEDIDOS)
+          resultado = Transformation().add_valor_total_pedidos(df)
+          assert resultado.collect()[0].valor_total is None
   ```
 
 > Cada tupla da lista vira **um teste independente** na saída do pytest (`...[10.0-2-20.0]`, `...[500.0-0-0.0]`, ...). Se um cenário falhar, você vê exatamente qual. O caso do `NULL` fica separado porque a verificação (`is None`) difere de uma comparação numérica.
@@ -3109,8 +3112,8 @@ Saída (com `-v`, graças ao `addopts`):
 
   tests/integration/test_pipeline.py::TestPipelineOrquestracao::test_le_pedidos_com_parametros_da_config PASSED
   ...
-  tests/unit/test_transformations.py::test_add_valor_total_parametrizado[10.0-2-20.0] PASSED
-  tests/unit/test_transformations.py::test_add_valor_total_parametrizado[500.0-0-0.0] PASSED
+  tests/unit/test_transformations.py::TestAddValorTotalPedidos::test_add_valor_total_parametrizado[10.0-2-20.0] PASSED
+  tests/unit/test_transformations.py::TestAddValorTotalPedidos::test_add_valor_total_parametrizado[500.0-0-0.0] PASSED
   ...
   ============================== 19 passed in 9.42s ==============================
   ```
